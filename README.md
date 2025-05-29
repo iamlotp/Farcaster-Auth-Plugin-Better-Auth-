@@ -1,9 +1,19 @@
 # Farcaster Plugin for Better-Auth
 
-## Description
+## ⚠️ Temporary Note
+- The NPM repo is under maintenance and installing from npm might not work as expected.
+- In the meantime you might need to manually copy the files provided in the `/src` path to your project and import the methods from there.
+- If you faced type errors for the cuid package, you need to create a `cuid2.d.ts` file with the following declartion:
+    ```TypeScript
+    declare module '@paralleldrive/cuid2' {
+        export function createId(): string;
+    }
+    ```
+
+## 🗒️ Description
 This is a community-made plug-in that will allow you to authenticate users via Farcasters.
 
-## How To Use
+## 📒 How To Use
 1. Add `farcasterAuth` as a plugin to `auth.ts`:
     ```TypeScript filename="auth.ts"
     import { betterAuth } from "better-auth";
