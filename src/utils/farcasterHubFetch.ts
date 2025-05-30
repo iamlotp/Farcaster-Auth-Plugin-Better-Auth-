@@ -34,8 +34,8 @@ export interface FarcasterUserData {
     Function To Fetch User Data From A Farcaster Hub ("PINATA" by default),
     The Data Will Be Used To Create A User In The Custom "farcasterUser" Table
 */
-export async function getUserDataByFid(fid: number, HTTP_HUB_DOMAIN: string): Promise<FarcasterUserData> {
-  const url = `https://${HTTP_HUB_DOMAIN}/v1/userDataByFid?fid=${fid}`;
+export async function getUserDataByFid(fid: number, HTTP_HUB_URL: string): Promise<FarcasterUserData> {
+  const url = `${HTTP_HUB_URL}/v1/userDataByFid?fid=${fid}`;
   const userData: FarcasterUserData = {};
 
   try {
