@@ -1,6 +1,6 @@
 {
   "name": "better-auth-farcaster-plugin",
-  "version": "0.6.9420",
+  "version": "0.7.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "clean": "rimraf ./dist",
-    "build": "tsc",
+    "build": "npm run clean && tsc",
     "prepublishOnly": "npm run build",
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
     "start": "node dist/index.js"

@@ -31,3 +31,16 @@ export const farcasterAuthClient = (): BetterAuthClientPlugin => {
         }),
     } satisfies BetterAuthClientPlugin;
 };
+
+export type FarcasterAuthClientType = {
+    farcaster: {
+        initiate: () => Promise<{ data: { nonce: string } }>;
+        verify: (data: {
+            message: string;
+            signature: `0x${string}`;
+            name?: string;
+            pfp?: string;
+            nonceFromClient: string;
+        }) => Promise<any>;
+    };
+};
