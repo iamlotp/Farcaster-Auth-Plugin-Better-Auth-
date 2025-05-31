@@ -1,5 +1,8 @@
 # Farcaster Plugin for Better-Auth
 
+## 🗒️ Description
+This is a community-made plug-in that will allow you to authenticate users via Farcasters.
+
 ## ⚙️ Setup
 Install the script using a node package manager:
 ```bash
@@ -13,9 +16,6 @@ deno add better-auth-farcaster-plugin
 # or 
 bun add better-auth-farcaster-plugin
 ```
-
-## 🗒️ Description
-This is a community-made plug-in that will allow you to authenticate users via Farcasters.
 
 ## 📒 How To Use
 1. Add `farcasterAuth` as a plugin to `auth.ts`:
@@ -39,37 +39,34 @@ This is a community-made plug-in that will allow you to authenticate users via F
     // Add Your Domain Name Here
     trustedOrigins: ["https://example.com"],
     plugins: [
-        farcasterAuth(),
+        farcasterAuth(), // call with { createFarcasterUserTable = false } as argument if you don't want to create the farcasterUser table
     ]
     })
     ```
+    - configuration options:
+        ```TypeSCript
+            farcasterAuth({
+                createFarcasterUserTable?: boolean, // creates the farcasterUser table in your database
+                fetchFromHub?: boolean // fetch fresh user data from hub to store in the database
+            })
+        ```
+
 *Note:* In the examples provided Prisma is used as the ORM library. You are free to replace it with your ORM library of choice.
 
 2. Add `farcasterAuthClient` as a plugin to `auth-client.ts`:
     ```TypeScript filename="auth-client.ts"
     import { createAuthClient } from "better-auth/react";
-    import { farcasterAuthClient } from "better-auth-farcaster-plugin";
+    import { farcasterAuthClient, type FarcasterAuthClientType } from "better-auth-farcaster-plugin";
 
     const client = createAuthClient({
-        baseURL: "https://example.com",
+        baseURL: process.env.BETTER_AUTH_URL || "https://example.com",
         plugins: [
             farcasterAuthClient(),
         ],
     });
 
     // Type the client to include custom farcaster methods
-    export const authClient = client as typeof client & {
-        farcaster: {
-            initiate: () => Promise<{ data: { nonce: string } }>;
-            verify: (data: {
-                message: string;
-                signature: `0x${string}`;
-                name?: string;
-                pfp?: string;
-                nonceFromClient: string;
-            }) => Promise<any>;
-        };
-    };
+    export const authClient = client as typeof client & FarcasterAuthClientType;
     ```
 
 3. Setting up the database
@@ -189,3 +186,12 @@ This is a community-made plug-in that will allow you to authenticate users via F
         }
         ```
 6. You can use the methods provided by better-auth in your app to manage the session, check if the user is authenticated, sign out the user, etc. [Read more:](https://www.better-auth.com/docs/basic-usage#session)
+
+## Notes
+- This plugin will add a `fid` column to better-auth `user` table in your database.
+
+### Dependencies
+- [better-auth](https://www.better-auth.com/)
+- [@farcaster/auth-client](https://docs.farcaster.xyz/auth-kit/client/introduction)
+- [dotenv](https://github.com/motdotla/dotenv#readme)
+- [@paralleldrive/cuid2](https://github.com/paralleldrive/cuid2#readme)

@@ -3,7 +3,7 @@ import { APIError } from "better-auth/api";
 import { setSessionCookie } from 'better-auth/cookies';
 import { createAuthEndpoint } from "better-auth/api";
 import { createAppClient, viemConnector } from "@farcaster/auth-client";
-import { getUserDataByFid } from "./utils/farcasterHubFetch";
+import { getUserDataByFid, type FarcasterUserData } from "./utils/farcasterHubFetch";
 import { getDomainFromUrl } from "./utils/helper";
 /*
     To Create A Random Cuid As The Primary Key For The Custom "farcasterUser" Table
@@ -30,8 +30,8 @@ type FarcasterUser = {
 };
 
 export const farcasterAuth = (
-    { createFarcasterUserTable = true }:
-        { createFarcasterUserTable?: boolean }
+    { createFarcasterUserTable = true, fetchFromHub = true }:
+        { createFarcasterUserTable?: boolean, fetchFromHub?: boolean } = {}
 ) => {
     const schema = {
         user: {
@@ -136,9 +136,19 @@ export const farcasterAuth = (
                         ],
                     }) as User
 
-                    const farcasterData = await getUserDataByFid(fid, HTTP_HUB_URL);
-                    const name = farcasterData.DISPLAY || farcasterData.USERNAME || `User ${fid}`;
-                    const pfp = farcasterData.PFP || "https://placehold.co/200x200?text=pfp";
+                    let farcasterHubData: FarcasterUserData | undefined;
+                    let name: string, pfp: string;
+                    if (fetchFromHub) {
+                        farcasterHubData = await getUserDataByFid(fid, HTTP_HUB_URL);
+                        if (!farcasterHubData) {
+                            throw new APIError("FAILED_DEPENDENCY", { message: "Failed to fetch Farcaster user data from the Hub." });
+                        }
+                        name = farcasterHubData.DISPLAY || farcasterHubData.USERNAME || `User ${fid}`;
+                        pfp = farcasterHubData.PFP || "https://placehold.co/200x200?text=pfp";
+                    } else {
+                        name = `User ${fid}`;
+                        pfp = "https://placehold.co/200x200?text=pfp";
+                    }
 
                     let farcasterUserDb: FarcasterUser | undefined;
                     if (createFarcasterUserTable) {
@@ -174,17 +184,17 @@ export const farcasterAuth = (
                             accountId: fid.toString(),
                         });
 
-                        if (createFarcasterUserTable) {
+                        if (createFarcasterUserTable && farcasterHubData) {
                             // A new record in the (custom made by this plugin) "farcasterUser" table
                             await ctx.context.adapter.create({
                                 model: "farcasterUser",
                                 data: {
                                     fid: fid.toString(),
                                     userId: user.id,
-                                    username: farcasterData.USERNAME || null,
-                                    displayName: farcasterData.DISPLAY || null,
-                                    twitterUsername: farcasterData.TWITTER || null,
-                                    pfp: farcasterData.PFP,
+                                    username: farcasterHubData.USERNAME || null,
+                                    displayName: farcasterHubData.DISPLAY || null,
+                                    twitterUsername: farcasterHubData.TWITTER || null,
+                                    pfp: farcasterHubData.PFP,
                                 }
                             })
                         }
@@ -193,25 +203,31 @@ export const farcasterAuth = (
                         if (
                             (user.image !== pfp) ||
                             (user.name !== name) ||
-                            (farcasterUserDb && (farcasterData.PFP !== farcasterUserDb.pfp)) ||
-                            (farcasterUserDb && (farcasterData.USERNAME !== farcasterUserDb.username)) ||
-                            (farcasterUserDb && (farcasterData.DISPLAY !== farcasterUserDb.displayName)) ||
-                            (farcasterUserDb && (farcasterData.TWITTER !== farcasterUserDb.twitterUsername))
+                            (farcasterHubData && farcasterUserDb &&
+                                (
+                                    (farcasterHubData.PFP !== farcasterUserDb.pfp) ||
+                                    (farcasterHubData.USERNAME !== farcasterUserDb.username) ||
+                                    (farcasterHubData.DISPLAY !== farcasterUserDb.displayName) ||
+                                    (farcasterHubData.TWITTER !== farcasterUserDb.twitterUsername)
+                                )
+                            )
                         ) {
-                            if (createFarcasterUserTable) {
-                                await ctx.context.adapter.update({
-                                    model: "farcasterUser",
-                                    where: [
-                                        { field: "fid", value: fid.toString() },
-                                    ],
-                                    update: {
-                                        username: farcasterData.USERNAME || null,
-                                        displayName: farcasterData.DISPLAY || null,
-                                        twitterUsername: farcasterData.TWITTER || null,
-                                        pfp: farcasterData.PFP || "https://placehold.co/200x200?text=pfp",
-                                    }
-                                })
-                            };
+                            if (farcasterHubData) {
+                                if (createFarcasterUserTable) {
+                                    await ctx.context.adapter.update({
+                                        model: "farcasterUser",
+                                        where: [
+                                            { field: "fid", value: fid.toString() },
+                                        ],
+                                        update: {
+                                            username: farcasterHubData.USERNAME || null,
+                                            displayName: farcasterHubData.DISPLAY || null,
+                                            twitterUsername: farcasterHubData.TWITTER || null,
+                                            pfp: farcasterHubData.PFP || "https://placehold.co/200x200?text=pfp",
+                                        }
+                                    })
+                                };
+                            }
                             user = await ctx.context.internalAdapter.updateUser(user.id, {
                                 ...(name && { name }),
                                 ...(pfp && { image: pfp })
