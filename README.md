@@ -69,16 +69,16 @@ bun add better-auth-farcaster-plugin
     export const authClient = client as typeof client & FarcasterAuthClientType;
     ```
 
-3. Setting up the database
+3. Setting up the database:
     1. To generate the schema required by Better Auth, run the following command
         ```bash
         npx @better-auth/cli@latest generate
         ```
-    2. To generate and apply the migration, run the following commands (For Prisma, look [here](https://www.better-auth.com/docs/adapters/drizzle) for other adapters):
-    ```bash
-    npx prisma generate
-    npx prisma migrate dev --name better_auth #(or npx prisma db push) use this command with caution! 
-    ```
+    2. To generate and apply the migration, run the following commands (For Prisma, look [here](https://www.better-auth.com/docs/adapters/drizzle) for other adapters)
+        ```bash
+        npx prisma generate
+        npx prisma migrate dev --name better_auth #(or npx prisma db push) use this command with caution! 
+        ```
     
 4. Environment variables
     Set these environment variables:
@@ -118,74 +118,74 @@ bun add better-auth-farcaster-plugin
         })
         ```
 
-        Here is an example NextJS Client React Component that provides a "Sign In With Farcaster" button:
-        ```TypeScript
-        'use client';
-        import sdk, {
-            SignIn as SignInCore,
-        } from "@farcaster/frame-sdk";
-        import { useCallback, useState } from "react";
-        import { Button } from "~/components/ui/button"; // ShadCN Button Component
-        import { authClient } from "~/lib/auth/auth-client";
+    Here is an example NextJS Client React Component that returns a "Sign In With Farcaster" button:
+    ```TypeScript
+    'use client';
+    import sdk, {
+        SignIn as SignInCore,
+    } from "@farcaster/frame-sdk";
+    import { useCallback, useState } from "react";
+    import { Button } from "~/components/ui/button"; // ShadCN Button Component
+    import { authClient } from "~/lib/auth/auth-client";
 
 
-        export function SignInWithFarcasterButton(
+    export function SignInWithFarcasterButton(
+        {
+            text = "Sign In With Farcaster",
+        }:
             {
-                text = "Sign In With Farcaster",
-            }:
-                {
-                    text?: string,
+                text?: string,
+            }
+    ) {
+        const [signingIn, setSigningIn] = useState(false);
+        const [signInFailure, setSignInFailure] = useState<string>();
+
+
+        const getNonce = useCallback(async () => {
+            const response = await authClient.farcaster.initiate();
+            const nonce = response.data.nonce;
+            if (!nonce) throw new Error("Unable to generate nonce");
+            return nonce;
+        }, []);
+
+        const handleSignIn = useCallback(async () => {
+            try {
+                setSigningIn(true);
+                setSignInFailure(undefined);
+                const nonce = await getNonce();
+                const result = await sdk.actions.signIn({ nonce });
+                await authClient.farcaster.verify({
+                    message: result.message,
+                    signature: result.signature as `0x${string}`,
+                    nonceFromClient: nonce,
+                })
+            } catch (e) {
+                if (e instanceof SignInCore.RejectedByUser) {
+                    setSignInFailure("Rejected by user");
+                    return;
                 }
-        ) {
-            const [signingIn, setSigningIn] = useState(false);
-            const [signInFailure, setSignInFailure] = useState<string>();
+                setSignInFailure("Unknown error");
+            } finally {
+                setSigningIn(false);
+            }
+        }, [getNonce]);
 
-
-            const getNonce = useCallback(async () => {
-                const response = await authClient.farcaster.initiate();
-                const nonce = response.data.nonce;
-                if (!nonce) throw new Error("Unable to generate nonce");
-                return nonce;
-            }, []);
-
-            const handleSignIn = useCallback(async () => {
-                try {
-                    setSigningIn(true);
-                    setSignInFailure(undefined);
-                    const nonce = await getNonce();
-                    const result = await sdk.actions.signIn({ nonce });
-                    await authClient.farcaster.verify({
-                        message: result.message,
-                        signature: result.signature as `0x${string}`,
-                        nonceFromClient: nonce,
-                    })
-                } catch (e) {
-                    if (e instanceof SignInCore.RejectedByUser) {
-                        setSignInFailure("Rejected by user");
-                        return;
-                    }
-                    setSignInFailure("Unknown error");
-                } finally {
-                    setSigningIn(false);
-                }
-            }, [getNonce]);
-
-            return (
-                <>
-                    <Button onClick={handleSignIn} disabled={signingIn}>
-                        {text}
-                    </Button>
-                    {signInFailure && !signingIn && (
-                        <div className="my-2 p-2 text-xs overflow-x-scroll bg-gray-100 rounded-lg font-mono">
-                            <div className="font-semibold text-gray-500 mb-1">SIWF Result</div>
-                            <div className="whitespace-pre">{signInFailure}</div>
-                        </div>
-                    )}
-                </>
-            )
-        }
-        ```
-6. You can use the methods provided by better-auth in your app to manage the session, check if the user is authenticated, sign out the user, etc. [Read more:](https://www.better-auth.com/docs/basic-usage#session)
+        return (
+            <>
+                <Button onClick={handleSignIn} disabled={signingIn}>
+                    {text}
+                </Button>
+                {signInFailure && !signingIn && (
+                    <div className="my-2 p-2 text-xs overflow-x-scroll bg-gray-100 rounded-lg font-mono">
+                        <div className="font-semibold text-gray-500 mb-1">SIWF Result</div>
+                        <div className="whitespace-pre">{signInFailure}</div>
+                    </div>
+                )}
+            </>
+        )
+    }
+    ```
+6. You can use the methods provided by better-auth in your app to manage the session, check if the user is authenticated, sign out the user, etc. [Read more](https://www.better-auth.com/docs/basic-usage#session)
 
 ## Notes
 - This plugin will add a `fid` column to better-auth `user` table in your database.
