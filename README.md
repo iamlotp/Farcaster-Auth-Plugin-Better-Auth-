@@ -32,24 +32,37 @@ bun add better-auth-farcaster-plugin
     */
 
     export const auth = betterAuth({
-    database: prismaAdapter(prisma, {
-        provider: "sqlite",
-    }),
-    baseURL: process.env.BETTER_AUTH_URL || "https://example.com",
-    // Add Your Domain Name Here
-    trustedOrigins: ["https://example.com"],
-    plugins: [
-        farcasterAuth(), // call with { createFarcasterUserTable = false } as argument if you don't want to create the farcasterUser table
-    ]
+        database: prismaAdapter(prisma, {
+            provider: "sqlite",
+        }),
+        baseURL: process.env.BETTER_AUTH_URL || "https://example.com",
+        // Add Your Domain Name Here
+        trustedOrigins: ["https://example.com"],
+        plugins: [
+            farcasterAuth(),
+        ]
     })
     ```
     - configuration options:
         ```TypeSCript
             farcasterAuth({
-                createFarcasterUserTable?: boolean, // creates the farcasterUser table in your database
-                fetchFromHub?: boolean // fetch fresh user data from hub to store in the database
+                nonceManager?: NonceManager,
+                resolveUser?: (fid: number) => Promise<TUser>,
+                domain?: string
             })
         ```
+        - `nonceManager` (*optional*) an object which lets you pass custom functions for generating and consuming nonces passed to farcaster relay. If the object is not passed, the plug-in will default to using the `verifications` table already provided by better-auth library and do the nonce management itself. Here is the expected type for `nonceManager`:
+            ```TypeSCript
+            type NonceManager = {
+                generate(): Promise<string>;
+                consume(nonce: string): Promise<boolean>;
+            };
+            ```
+        - `resolveUser` (*optional*) a function that would be executed every time a user authenticates.
+        - `domain` (*optional*) the domain for your app. If not passed, takes the value from the `BETTER_AUTH_URL` environment variable.
+            - Note: The domain should not have the protocol (eg. `https://`) attached. Example: `app-url.example.com`
+
+        
 
 *Note:* In the examples provided Prisma is used as the ORM library. You are free to replace it with your ORM library of choice.
 
@@ -74,18 +87,15 @@ bun add better-auth-farcaster-plugin
         ```bash
         npx @better-auth/cli@latest generate
         ```
-    2. To generate and apply the migration, run the following commands (For Prisma, look [here](https://www.better-auth.com/docs/adapters/drizzle) for other adapters)
+    2. To generate and apply the migration, run the following commands (This is for **Prisma**, look [here](https://www.better-auth.com/docs/adapters/drizzle) for other adapters)
         ```bash
         npx prisma generate
         npx prisma migrate dev --name better_auth #(or npx prisma db push) use this command with caution! 
         ```
     
 4. Environment variables
-    Set these environment variables:
     ```dotenv
     BETTER_AUTH_URL="https://example.com"
-    APP_URL="https://example.com"
-    FARCASTER_HTTP_HUB="" # Not Required, defaults to "Pinata Hub" if not provided
     ```
 
 5. The Authentication Flow:

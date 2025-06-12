@@ -1,7 +1,6 @@
 import type { BetterAuthClientPlugin } from "better-auth/types";
 import type { farcasterAuth } from "./FarcasterAuth";
 
-
 type ServerFarcasterPluginReturnType = ReturnType<typeof farcasterAuth>;
 
 export const farcasterAuthClient = (): BetterAuthClientPlugin => {

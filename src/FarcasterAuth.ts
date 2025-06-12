@@ -1,104 +1,44 @@
-import type { AuthPluginSchema, BetterAuthPlugin, User as BetterAuthUser } from "better-auth";
+import type { BetterAuthPlugin, User as BetterAuthUser } from "better-auth";
 import { APIError } from "better-auth/api";
 import { setSessionCookie } from 'better-auth/cookies';
 import { createAuthEndpoint } from "better-auth/api";
 import { createAppClient, viemConnector } from "@farcaster/auth-client";
-import { getUserDataByFid, type FarcasterUserData } from "./utils/farcasterHubFetch";
 import { getDomainFromUrl } from "./utils/helper";
-/*
-    To Create A Random Cuid As The Primary Key For The Custom "farcasterUser" Table
-*/
-import { createId } from '@paralleldrive/cuid2';
+import { VerificationTableNonceManager, type NonceManager } from "./utils/NonceManager";
+
 import { config } from 'dotenv'
 config();
-// Constants
-const HTTP_HUB_URL = process.env.FARCASTER_HTTP_HUB || 'https://hub.pinata.cloud'
-const AUTH_URL = process.env.BETTER_AUTH_URL || process.env.APP_URL || 'http://localhost:3000';
-
 
 type User = BetterAuthUser & { fid?: string };
 
-type FarcasterUser = {
-    id: string;
-    fid: string;
-    username?: string | null;
-    displayName?: string | null;
-    twitterUsername?: string | null;
-    userId: string;
-    pfp?: string | null;
-    createdAt: Date;
-};
-
-export const farcasterAuth = (
-    { createFarcasterUserTable = true, fetchFromHub = true }:
-        { createFarcasterUserTable?: boolean, fetchFromHub?: boolean } = {}
+export const farcasterAuth = <TUser extends User>(
+    {
+        nonceManager,
+        resolveUser,
+        domain
+    }: {
+        nonceManager?: NonceManager,
+        resolveUser?: (fid: number) => Promise<TUser>,
+        domain?: string
+    } = {}
 ) => {
-    const schema = {
-        user: {
-            fields: {
-                fid: {
-                    type: "string",
-                    unique: true,
-                    required: false,
-                },
-            },
-        },
-        ...(createFarcasterUserTable ? {
-            farcasterUser: {
+    return {
+        id: "farcaster",
+        schema: {
+            user: {
                 fields: {
-                    id: {
-                        type: "string",
-                        unique: true,
-                        required: true,
-                        defaultValue: () => createId(),
-                    },
                     fid: {
                         type: "string",
                         unique: true,
-                        required: true,
-                    },
-                    username: {
-                        type: "string",
                         required: false,
-                    },
-                    displayName: {
-                        type: "string",
-                        required: false,
-                    },
-                    twitterUsername: {
-                        type: "string",
-                        required: false,
-                    },
-                    pfp: {
-                        type: "string",
-                        required: false,
-                        defaultValue: "https://placehold.co/200x200?text=pfp",
-                    },
-                    userId: {
-                        type: "string",
-                        unique: true,
-                        required: true,
-                        references: {
-                            model: "user",
-                            field: "id",
-                        }
-                    },
-                    createdAt: {
-                        type: "date",
-                        required: true,
-                        defaultValue: () => new Date(),
                     },
                 },
             }
-        } : {})
-    } as AuthPluginSchema
-
-    return {
-        id: "farcaster",
-        schema: schema,
+        },
         endpoints: {
             initiateFarcasterSignIn: createAuthEndpoint("/farcaster/initiate", { method: "GET" }, async (ctx) => {
-                const nonce = ctx.context.generateId({ model: "passkey", size: 32 });
+                const manager = nonceManager || new VerificationTableNonceManager(ctx.context.adapter);
+                const nonce = await manager.generate();
                 return ctx.json({ nonce });
             }),
             verifyFarcasterSignIn: createAuthEndpoint("/farcaster/verify", { method: "POST" }, async (ctx) => {
@@ -108,17 +48,23 @@ export const farcasterAuth = (
                     nonceFromClient: string;
                 };
 
+                const manager = nonceManager || new VerificationTableNonceManager(ctx.context.adapter);
+                const isValid = await manager.consume(nonceFromClient);
+                if (!isValid) {
+                    throw new APIError("UNAUTHORIZED", { message: "Invalid or expired nonce." });
+                }
+
                 const appClient = createAppClient({
                     ethereum: viemConnector(),
                 });
 
-                const domain = getDomainFromUrl(AUTH_URL);
+                const appdomain = domain || getDomainFromUrl(process.env.BETTER_AUTH_URL);
 
                 try {
                     const verifyResponse = await appClient.verifySignInMessage({
                         message,
                         signature,
-                        domain,
+                        domain: appdomain,
                         nonce: nonceFromClient,
                     });
 
@@ -136,33 +82,6 @@ export const farcasterAuth = (
                         ],
                     }) as User
 
-                    let farcasterHubData: FarcasterUserData | undefined;
-                    let name: string, pfp: string;
-                    if (fetchFromHub) {
-                        farcasterHubData = await getUserDataByFid(fid, HTTP_HUB_URL);
-                        if (!farcasterHubData) {
-                            throw new APIError("FAILED_DEPENDENCY", { message: "Failed to fetch Farcaster user data from the Hub." });
-                        }
-                        name = farcasterHubData.DISPLAY || farcasterHubData.USERNAME || `User ${fid}`;
-                        pfp = farcasterHubData.PFP || "https://placehold.co/200x200?text=pfp";
-                    } else {
-                        name = `User ${fid}`;
-                        pfp = "https://placehold.co/200x200?text=pfp";
-                    }
-
-                    let farcasterUserDb: FarcasterUser | undefined;
-                    if (createFarcasterUserTable) {
-                        farcasterUserDb = await ctx.context.adapter.findOne({
-                            model: "farcasterUser",
-                            where: [
-                                { field: "fid", value: fid.toString() },
-                            ],
-                        }) as FarcasterUser;
-                    }
-
-
-                    // Flow For Creating A New User
-                    // A New User, Account and FarcasterUser Will Be Created In Their Respected Table
                     if (!user) {
                         // Every User In Better-Auth Should Have An Email Address
                         // An Arbitrary Email Address Will Be Set For Each New User
@@ -171,8 +90,7 @@ export const farcasterAuth = (
                         // A new record in the "user" table
                         user = await ctx.context.internalAdapter.createUser({
                             email: userEmail,
-                            name: name || `User ${fid}`,
-                            image: pfp,
+                            name: `Farcaster User ID: ${fid}`,
                             emailVerified: false,
                             fid: fid.toString(),
                         });
@@ -183,56 +101,6 @@ export const farcasterAuth = (
                             providerId: "farcaster",
                             accountId: fid.toString(),
                         });
-
-                        if (createFarcasterUserTable && farcasterHubData) {
-                            // A new record in the (custom made by this plugin) "farcasterUser" table
-                            await ctx.context.adapter.create({
-                                model: "farcasterUser",
-                                data: {
-                                    fid: fid.toString(),
-                                    userId: user.id,
-                                    username: farcasterHubData.USERNAME || null,
-                                    displayName: farcasterHubData.DISPLAY || null,
-                                    twitterUsername: farcasterHubData.TWITTER || null,
-                                    pfp: farcasterHubData.PFP,
-                                }
-                            })
-                        }
-                    } else {
-                        // Update user data if they have changed
-                        if (
-                            (user.image !== pfp) ||
-                            (user.name !== name) ||
-                            (farcasterHubData && farcasterUserDb &&
-                                (
-                                    (farcasterHubData.PFP !== farcasterUserDb.pfp) ||
-                                    (farcasterHubData.USERNAME !== farcasterUserDb.username) ||
-                                    (farcasterHubData.DISPLAY !== farcasterUserDb.displayName) ||
-                                    (farcasterHubData.TWITTER !== farcasterUserDb.twitterUsername)
-                                )
-                            )
-                        ) {
-                            if (farcasterHubData) {
-                                if (createFarcasterUserTable) {
-                                    await ctx.context.adapter.update({
-                                        model: "farcasterUser",
-                                        where: [
-                                            { field: "fid", value: fid.toString() },
-                                        ],
-                                        update: {
-                                            username: farcasterHubData.USERNAME || null,
-                                            displayName: farcasterHubData.DISPLAY || null,
-                                            twitterUsername: farcasterHubData.TWITTER || null,
-                                            pfp: farcasterHubData.PFP || "https://placehold.co/200x200?text=pfp",
-                                        }
-                                    })
-                                };
-                            }
-                            user = await ctx.context.internalAdapter.updateUser(user.id, {
-                                ...(name && { name }),
-                                ...(pfp && { image: pfp })
-                            });
-                        }
                     }
 
                     // Create A Session Cookie And Set It In The Response
@@ -250,6 +118,10 @@ export const farcasterAuth = (
                             path: "/"
                         }
                     );
+
+                    if (resolveUser) {
+                        await resolveUser(fid);
+                    }
 
                     return ctx.json({
                         user: {
