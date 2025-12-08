@@ -1,6 +1,8 @@
 # build artifacts
 /dist
 
+*-docs.md
+
 # tests
 /test
 *.test.js

@@ -3,6 +3,8 @@ bun.lockb
 pnpm-lock.yaml
 package-lock.json
 
+*-docs.md
+
 # Logs
 
 logs

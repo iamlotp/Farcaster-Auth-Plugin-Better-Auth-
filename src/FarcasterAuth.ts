@@ -1,147 +1,429 @@
-import type { BetterAuthPlugin, User as BetterAuthUser } from "better-auth";
-import { APIError } from "better-auth/api";
+import type { BetterAuthPlugin, User as BetterAuthUser, Session } from "better-auth";
+import { APIError, sessionMiddleware } from "better-auth/api";
 import { setSessionCookie } from 'better-auth/cookies';
 import { createAuthEndpoint } from "better-auth/api";
-import { createAppClient, viemConnector } from "@farcaster/auth-client";
-import { getDomainFromUrl } from "./utils/helper";
-import { VerificationTableNonceManager, type NonceManager } from "./utils/NonceManager";
+import { createClient, Errors } from "@farcaster/quick-auth";
+import { z } from "zod";
 
-import { config } from 'dotenv'
-config();
+// Type for user records from the adapter
+type UserRecord = { id: string;[key: string]: unknown };
 
-type User = BetterAuthUser & { fid?: string };
+// Extended user type with Farcaster FID
+export type FarcasterUser = BetterAuthUser & { fid?: number | null };
 
-export const farcasterAuth = <TUser extends User>(
-    {
-        nonceManager,
-        resolveUser,
-        domain
-    }: {
-        nonceManager?: NonceManager,
-        resolveUser?: (fid: number) => Promise<TUser>,
-        domain?: string
-    } = {}
-) => {
+// Plugin options
+export interface FarcasterPluginOptions {
+    /**
+     * The domain of your application (e.g., "myapp.com" or "https://myapp.com")
+     * Used to verify the JWT token's audience
+     */
+    domain: string;
+    /**
+     * Optional function to resolve additional user data from Farcaster
+     * @param fid - The Farcaster ID
+     * @returns Additional user data to store
+     */
+    resolveUserData?: (fid: number) => Promise<{
+        name?: string;
+        email?: string;
+        image?: string;
+    }>;
+    /**
+     * Cookie configuration options
+     */
+    cookieOptions?: {
+        secure?: boolean;
+        sameSite?: "strict" | "lax" | "none";
+        httpOnly?: boolean;
+        path?: string;
+    };
+}
+
+// Response types
+export interface FarcasterSignInResponse {
+    user: FarcasterUser;
+    session: Session;
+}
+
+export interface FarcasterProfileResponse {
+    fid: number;
+    user: FarcasterUser;
+}
+
+export interface FarcasterLinkResponse {
+    success: boolean;
+    user: FarcasterUser;
+}
+
+// Input schemas
+const signInSchema = z.object({
+    token: z.string().min(1, "Token is required"),
+});
+
+const linkAccountSchema = z.object({
+    token: z.string().min(1, "Token is required"),
+});
+
+/**
+ * Farcaster authentication plugin for Better Auth
+ * Uses Farcaster Quick Auth to verify JWT tokens
+ */
+export const farcasterAuth = (options: FarcasterPluginOptions) => {
+    const client = createClient();
+    const domain = getDomainFromUrl(options.domain);
+
+    const cookieOptions = {
+        secure: true,
+        sameSite: "none" as const,
+        httpOnly: true,
+        path: "/",
+        ...options.cookieOptions,
+    };
+
     return {
         id: "farcaster",
         schema: {
             user: {
                 fields: {
                     fid: {
-                        type: "string",
+                        type: "number",
                         unique: true,
                         required: false,
                     },
                 },
-            }
+            },
         },
         endpoints: {
-            initiateFarcasterSignIn: createAuthEndpoint("/farcaster/initiate", { method: "GET" }, async (ctx) => {
-                const manager = nonceManager || new VerificationTableNonceManager(ctx.context.adapter);
-                const nonce = await manager.generate();
-                return ctx.json({ nonce });
-            }),
-            verifyFarcasterSignIn: createAuthEndpoint("/farcaster/verify", { method: "POST" }, async (ctx) => {
-                const { message, signature, nonceFromClient } = ctx.body as {
-                    message: string;
-                    signature: `0x${string}`;
-                    nonceFromClient: string;
-                };
+            /**
+             * Sign in with Farcaster Quick Auth token
+             */
+            signInWithFarcaster: createAuthEndpoint(
+                "/farcaster/sign-in",
+                {
+                    method: "POST",
+                    body: signInSchema,
+                    metadata: {
+                        openapi: {
+                            summary: "Sign in with Farcaster",
+                            description: "Authenticate a user using a Farcaster Quick Auth token",
+                            tags: ["Farcaster"],
+                        },
+                    },
+                },
+                async (ctx) => {
+                    const { token } = ctx.body;
 
-                const manager = nonceManager || new VerificationTableNonceManager(ctx.context.adapter);
-                const isValid = await manager.consume(nonceFromClient);
-                if (!isValid) {
-                    throw new APIError("UNAUTHORIZED", { message: "Invalid or expired nonce." });
+                    try {
+                        const payload = await client.verifyJwt({
+                            token,
+                            domain,
+                        });
+
+                        const fid = payload.sub;
+
+                        if (!fid) {
+                            throw new APIError("BAD_REQUEST", {
+                                message: "Invalid token: no FID found",
+                            });
+                        }
+
+                        // Check if user already exists with this FID
+                        const existingUser = await ctx.context.adapter.findOne({
+                            model: "user",
+                            where: [
+                                {
+                                    field: "fid",
+                                    value: fid,
+                                },
+                            ],
+                        }) as UserRecord | null;
+
+                        let user: UserRecord;
+
+                        if (existingUser) {
+                            user = existingUser;
+                        } else {
+                            // Resolve additional user data if provided
+                            const additionalData = options.resolveUserData
+                                ? await options.resolveUserData(fid)
+                                : { name: undefined, email: undefined, image: undefined };
+
+                            // Create new user with FID
+                            const createdUser = await ctx.context.adapter.create({
+                                model: "user",
+                                data: {
+                                    fid,
+                                    email: additionalData.email || `${fid}@farcaster.local`,
+                                    name: additionalData.name || `Farcaster User ${fid}`,
+                                    image: additionalData.image,
+                                    emailVerified: true,
+                                },
+                            }) as UserRecord;
+                            user = createdUser;
+                        }
+
+                        // Create session for the user
+                        const session = await ctx.context.internalAdapter.createSession(
+                            user.id,
+                            ctx
+                        );
+
+                        if (!session) {
+                            throw new APIError("INTERNAL_SERVER_ERROR", {
+                                message: "Failed to create session",
+                            });
+                        }
+
+                        await setSessionCookie(
+                            ctx,
+                            {
+                                session,
+                                user: user as unknown as FarcasterUser,
+                            },
+                            false,
+                            cookieOptions
+                        );
+
+                        return ctx.json({
+                            user: user as unknown as FarcasterUser,
+                            session,
+                        });
+                    } catch (error) {
+                        if (error instanceof APIError) {
+                            throw error;
+                        }
+
+                        if (error instanceof Errors.InvalidTokenError) {
+                            throw new APIError("UNAUTHORIZED", {
+                                message: "Invalid or expired Farcaster token",
+                            });
+                        }
+
+                        ctx.context.logger.error("Farcaster auth error:", error);
+
+                        throw new APIError("INTERNAL_SERVER_ERROR", {
+                            message: "Authentication failed",
+                        });
+                    }
                 }
+            ),
 
-                const appClient = createAppClient({
-                    ethereum: viemConnector(),
-                });
+            /**
+             * Link an existing account to a Farcaster FID
+             */
+            linkFarcasterAccount: createAuthEndpoint(
+                "/farcaster/link",
+                {
+                    method: "POST",
+                    body: linkAccountSchema,
+                    use: [sessionMiddleware],
+                    metadata: {
+                        openapi: {
+                            summary: "Link Farcaster account",
+                            description: "Link an existing account to a Farcaster FID",
+                            tags: ["Farcaster"],
+                        },
+                    },
+                },
+                async (ctx) => {
+                    const { token } = ctx.body;
+                    const session = ctx.context.session;
 
-                const appdomain = domain || getDomainFromUrl(process.env.BETTER_AUTH_URL);
+                    try {
+                        const payload = await client.verifyJwt({
+                            token,
+                            domain,
+                        });
 
-                try {
-                    const verifyResponse = await appClient.verifySignInMessage({
-                        message,
-                        signature,
-                        domain: appdomain,
-                        nonce: nonceFromClient,
-                    });
+                        const fid = payload.sub;
 
-                    if (!verifyResponse.success) {
-                        throw new APIError("UNAUTHORIZED", { message: "Farcaster sign-in verification failed." });
+                        if (!fid) {
+                            throw new APIError("BAD_REQUEST", {
+                                message: "Invalid token: no FID found",
+                            });
+                        }
+
+                        // Check if this FID is already linked to another account
+                        const existingUser = await ctx.context.adapter.findOne({
+                            model: "user",
+                            where: [
+                                {
+                                    field: "fid",
+                                    value: fid,
+                                },
+                            ],
+                        }) as UserRecord | null;
+
+                        if (existingUser && existingUser.id !== session.user.id) {
+                            throw new APIError("BAD_REQUEST", {
+                                message: "This Farcaster account is already linked to another user",
+                            });
+                        }
+
+                        // Update the user with the FID
+                        const updatedUser = await ctx.context.adapter.update({
+                            model: "user",
+                            where: [
+                                {
+                                    field: "id",
+                                    value: session.user.id,
+                                },
+                            ],
+                            update: {
+                                fid,
+                            },
+                        }) as UserRecord | null;
+
+                        if (!updatedUser) {
+                            throw new APIError("INTERNAL_SERVER_ERROR", {
+                                message: "Failed to update user",
+                            });
+                        }
+
+                        return ctx.json({
+                            success: true,
+                            user: updatedUser as unknown as FarcasterUser,
+                        });
+                    } catch (error) {
+                        if (error instanceof APIError) {
+                            throw error;
+                        }
+
+                        if (error instanceof Errors.InvalidTokenError) {
+                            throw new APIError("UNAUTHORIZED", {
+                                message: "Invalid or expired Farcaster token",
+                            });
+                        }
+
+                        ctx.context.logger.error("Farcaster link error:", error);
+
+                        throw new APIError("INTERNAL_SERVER_ERROR", {
+                            message: "Failed to link Farcaster account",
+                        });
+                    }
+                }
+            ),
+
+            /**
+             * Unlink Farcaster from the current account
+             */
+            unlinkFarcasterAccount: createAuthEndpoint(
+                "/farcaster/unlink",
+                {
+                    method: "POST",
+                    use: [sessionMiddleware],
+                    metadata: {
+                        openapi: {
+                            summary: "Unlink Farcaster account",
+                            description: "Remove Farcaster FID from the current account",
+                            tags: ["Farcaster"],
+                        },
+                    },
+                },
+                async (ctx) => {
+                    const session = ctx.context.session;
+                    const currentUser = session.user as FarcasterUser;
+
+                    if (!currentUser.fid) {
+                        throw new APIError("BAD_REQUEST", {
+                            message: "No Farcaster account linked",
+                        });
                     }
 
-                    const fid = verifyResponse.fid;
-
-                    // Checks the Better-Auth User Table To See If The User Has Been Registered Before
-                    let user = await ctx.context.adapter.findOne({
+                    const updatedUser = await ctx.context.adapter.update({
                         model: "user",
                         where: [
-                            { field: "fid", value: fid.toString() },
+                            {
+                                field: "id",
+                                value: session.user.id,
+                            },
                         ],
-                    }) as User
-
-                    if (!user) {
-                        // Every User In Better-Auth Should Have An Email Address
-                        // An Arbitrary Email Address Will Be Set For Each New User
-                        const userEmail = `${fid}@farcaster.emails`;
-
-                        // A new record in the "user" table
-                        user = await ctx.context.internalAdapter.createUser({
-                            email: userEmail,
-                            name: `Farcaster User ID: ${fid}`,
-                            emailVerified: false,
-                            fid: fid.toString(),
-                        });
-
-                        // A new record in the "acount" table
-                        await ctx.context.internalAdapter.createAccount({
-                            userId: user.id,
-                            providerId: "farcaster",
-                            accountId: fid.toString(),
-                        });
-                    }
-
-                    // Create A Session Cookie And Set It In The Response
-                    const session = await ctx.context.internalAdapter.createSession(user.id, ctx);
-                    await setSessionCookie(ctx,
-                        {
-                            session,
-                            user
+                        update: {
+                            fid: null,
                         },
-                        false,
-                        {
-                            secure: true,
-                            sameSite: "none",
-                            httpOnly: true,
-                            path: "/"
-                        }
-                    );
+                    }) as UserRecord | null;
 
-                    if (resolveUser) {
-                        await resolveUser(fid);
+                    if (!updatedUser) {
+                        throw new APIError("INTERNAL_SERVER_ERROR", {
+                            message: "Failed to update user",
+                        });
                     }
 
                     return ctx.json({
-                        user: {
-                            id: user.id,
-                            name: user.name,
-                            email: user.email,
-                            image: user.image,
-                            fid: user.fid
-                        },
-                        token: session.token,
-                        success: true
-                    });
-
-                } catch (error: any) {
-                    console.error("Farcaster verification error:", error);
-                    throw new APIError("INTERNAL_SERVER_ERROR", {
-                        message: error.message || "Farcaster sign-in failed"
+                        success: true,
+                        user: updatedUser as unknown as FarcasterUser,
                     });
                 }
-            }),
+            ),
+
+            /**
+             * Get the Farcaster profile for the current user
+             */
+            getFarcasterProfile: createAuthEndpoint(
+                "/farcaster/profile",
+                {
+                    method: "GET",
+                    use: [sessionMiddleware],
+                    metadata: {
+                        openapi: {
+                            summary: "Get Farcaster profile",
+                            description: "Get the Farcaster FID and user data for the authenticated user",
+                            tags: ["Farcaster"],
+                        },
+                    },
+                },
+                async (ctx) => {
+                    const session = ctx.context.session;
+                    const currentUser = session.user as FarcasterUser;
+
+                    if (!currentUser?.fid) {
+                        throw new APIError("BAD_REQUEST", {
+                            message: "No Farcaster FID found for user",
+                        });
+                    }
+
+                    return ctx.json({
+                        fid: currentUser.fid,
+                        user: currentUser,
+                    });
+                }
+            ),
         },
+
+        // Rate limiting for authentication endpoints
+        rateLimit: [
+            {
+                pathMatcher: (path: string) => path === "/farcaster/sign-in",
+                max: 10,
+                window: 60, // 10 requests per minute
+            },
+            {
+                pathMatcher: (path: string) => path === "/farcaster/link",
+                max: 5,
+                window: 60, // 5 requests per minute
+            },
+        ],
     } satisfies BetterAuthPlugin;
 };
+
+/**
+ * Extract hostname from a URL string
+ * @param url - URL string (e.g., "https://example.com" or "example.com")
+ * @returns The hostname portion of the URL
+ */
+function getDomainFromUrl(url: string): string {
+    // If it's already just a hostname, return it
+    if (!url.includes("://") && !url.startsWith("//")) {
+        // Remove any port or path
+        return url.split(":")[0].split("/")[0];
+    }
+
+    try {
+        const parsedUrl = new URL(url);
+        return parsedUrl.hostname;
+    } catch {
+        // If parsing fails, try to extract hostname manually
+        const cleaned = url.replace(/^(https?:)?\/\//, "");
+        return cleaned.split(":")[0].split("/")[0];
+    }
+}

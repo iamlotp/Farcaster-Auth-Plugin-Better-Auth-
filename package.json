@@ -1,6 +1,6 @@
 {
   "name": "better-auth-farcaster-plugin",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -23,18 +23,30 @@
   "license": "ISC",
   "description": "A community-made plug-in to authenticate Farcaster users",
   "dependencies": {
-    "@farcaster/auth-client": "^0.6.0",
-    "@paralleldrive/cuid2": "^2.2.2",
-    "better-auth": "^1.2.8",
-    "dotenv": "^16.5.0"
+    "@farcaster/quick-auth": "^0.0.8"
+  },
+  "peerDependencies": {
+    "better-auth": ">=1.2.0",
+    "zod": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "better-auth": {
+      "optional": false
+    },
+    "zod": {
+      "optional": false
+    }
   },
   "devDependencies": {
+    "@paralleldrive/cuid2": "^2.2.2",
     "@types/bun": "latest",
+    "better-auth": "^1.2.8",
     "nodemon": "^3.1.10",
     "npm-check-updates": "^18.0.1",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "zod": "^3.23.8"
   },
   "repository": {
     "type": "git",
