@@ -12,7 +12,12 @@ export { useFarcasterLink } from "./useFarcasterLink";
 export type {
     UseFarcasterLinkOptions,
     UseFarcasterLinkReturn,
+    BetterAuthClientForLink,
 } from "./useFarcasterLink";
+
+// Error types
+export { FarcasterAuthError } from "./errors";
+export type { FarcasterAuthErrorCode } from "./errors";
 
 // Re-export types that consumers might need
 export type {

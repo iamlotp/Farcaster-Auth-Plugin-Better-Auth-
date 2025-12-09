@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { Session } from "better-auth";
 import type { FarcasterSignInResponse, FarcasterUser } from "../types";
+import { FarcasterAuthError } from "./errors";
 
 /**
  * Function type for getting a Farcaster Quick Auth token
@@ -58,17 +59,6 @@ export interface UseFarcasterSignInOptions {
      * Function to get the Farcaster Quick Auth token
      * This is typically obtained from @farcaster/auth-kit or @farcaster/frame-sdk
      * 
-     * @example Using @farcaster/auth-kit:
-     * ```ts
-     * import { useSignIn } from "@farcaster/auth-kit";
-     * 
-     * const { signIn: farcasterSignIn, message, signature, nonce } = useSignIn({
-     *   onSuccess: ({ message, signature, nonce }) => {
-     *     // Handle success
-     *   },
-     * });
-     * ```
-     * 
      * @example Using @farcaster/frame-sdk:
      * ```ts
      * import sdk from "@farcaster/frame-sdk";
@@ -96,7 +86,17 @@ export interface UseFarcasterSignInOptions {
     /**
      * Callback fired when sign-in fails
      */
-    onError?: (error: Error) => void;
+    onError?: (error: FarcasterAuthError) => void;
+    /**
+     * Callback fired when sign-out completes
+     */
+    onSignOut?: () => void;
+    /**
+     * Callback fired when session expires or becomes invalid
+     * This is detected when refreshSession finds no valid session
+     * after previously being authenticated
+     */
+    onSessionExpired?: () => void;
 }
 
 /**
@@ -109,17 +109,27 @@ export interface UseFarcasterSignInReturn {
      */
     signIn: () => Promise<void>;
     /**
+     * Sign out the current user and clear local state
+     * This calls authClient.signOut() and resets the hook state
+     */
+    signOut: () => Promise<void>;
+    /**
      * Whether the sign-in process is currently in progress
      */
     isLoading: boolean;
+    /**
+     * Whether the sign-out process is currently in progress
+     */
+    isSigningOut: boolean;
     /**
      * Whether the session check is in progress (on initial mount)
      */
     isCheckingSession: boolean;
     /**
      * Error that occurred during sign-in or session check, if any
+     * This is a FarcasterAuthError with a code property for programmatic handling
      */
-    error: Error | null;
+    error: FarcasterAuthError | null;
     /**
      * The authenticated user data after successful sign-in or session restoration
      */
@@ -138,13 +148,9 @@ export interface UseFarcasterSignInReturn {
     reset: () => void;
     /**
      * Manually refresh the session from the server
+     * If session has expired, will trigger onSessionExpired callback
      */
     refreshSession: () => Promise<void>;
-    /**
-     * Sign out the current user and clear local state
-     * This calls authClient.signOut() and resets the hook state
-     */
-    signOut: () => Promise<void>;
 }
 
 /**
@@ -162,8 +168,10 @@ export interface UseFarcasterSignInReturn {
  * 
  * function SignInButton() {
  *   const { 
- *     signIn, 
- *     isLoading, 
+ *     signIn,
+ *     signOut,
+ *     isLoading,
+ *     isSigningOut,
  *     isCheckingSession,
  *     error, 
  *     user, 
@@ -181,8 +189,14 @@ export interface UseFarcasterSignInReturn {
  *     onSessionFound: (data) => {
  *       console.log("Existing session found!", data.user);
  *     },
+ *     onSignOut: () => {
+ *       console.log("User signed out");
+ *     },
+ *     onSessionExpired: () => {
+ *       console.log("Session expired!");
+ *     },
  *     onError: (error) => {
- *       console.error("Sign-in failed:", error);
+ *       console.error("Sign-in failed:", error.code, error.message);
  *     },
  *   });
  * 
@@ -194,7 +208,9 @@ export interface UseFarcasterSignInReturn {
  *     return (
  *       <div>
  *         <p>Welcome, {user?.name}!</p>
- *         <p>Session expires: {session?.expiresAt}</p>
+ *         <button onClick={signOut} disabled={isSigningOut}>
+ *           {isSigningOut ? "Signing out..." : "Sign Out"}
+ *         </button>
  *       </div>
  *     );
  *   }
@@ -206,15 +222,6 @@ export interface UseFarcasterSignInReturn {
  *   );
  * }
  * ```
- * 
- * @example Disabling auto session check:
- * ```tsx
- * const { signIn, isLoading } = useFarcasterSignIn({
- *   authClient,
- *   getToken: async () => tokenFromSomewhere,
- *   autoCheckSession: false, // Disable automatic session check
- * });
- * ```
  */
 export function useFarcasterSignIn(
     options: UseFarcasterSignInOptions
@@ -225,21 +232,27 @@ export function useFarcasterSignIn(
         autoCheckSession = true,
         onSuccess,
         onSessionFound,
-        onError
+        onError,
+        onSignOut,
+        onSessionExpired
     } = options;
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isSigningOut, setIsSigningOut] = useState(false);
     const [isCheckingSession, setIsCheckingSession] = useState(autoCheckSession);
-    const [error, setError] = useState<Error | null>(null);
+    const [error, setError] = useState<FarcasterAuthError | null>(null);
     const [user, setUser] = useState<FarcasterUser | null>(null);
     const [session, setSession] = useState<Session | null>(null);
 
-    // Use refs to track if we've already checked the session and store stable references
+    // Use refs to track state and store stable references
     const hasCheckedSession = useRef(false);
+    const wasAuthenticated = useRef(false);
     const authClientRef = useRef(authClient);
     const onSessionFoundRef = useRef(onSessionFound);
     const onSuccessRef = useRef(onSuccess);
     const onErrorRef = useRef(onError);
+    const onSignOutRef = useRef(onSignOut);
+    const onSessionExpiredRef = useRef(onSessionExpired);
     const getTokenRef = useRef(getToken);
 
     // Keep refs up to date
@@ -247,15 +260,24 @@ export function useFarcasterSignIn(
     onSessionFoundRef.current = onSessionFound;
     onSuccessRef.current = onSuccess;
     onErrorRef.current = onError;
+    onSignOutRef.current = onSignOut;
+    onSessionExpiredRef.current = onSessionExpired;
     getTokenRef.current = getToken;
+
+    // Track authentication state for session expiration detection
+    useEffect(() => {
+        wasAuthenticated.current = user !== null && session !== null;
+    }, [user, session]);
 
     const reset = useCallback(() => {
         setIsLoading(false);
+        setIsSigningOut(false);
         setIsCheckingSession(false);
         setError(null);
         setUser(null);
         setSession(null);
         hasCheckedSession.current = false;
+        wasAuthenticated.current = false;
     }, []);
 
     /**
@@ -269,8 +291,10 @@ export function useFarcasterSignIn(
             const response = await authClientRef.current.getSession();
 
             if (response.error) {
-                // Session check failed, but this is not necessarily an error
-                // It might just mean the user is not logged in
+                // Session check failed - check if session expired
+                if (wasAuthenticated.current) {
+                    onSessionExpiredRef.current?.();
+                }
                 setUser(null);
                 setSession(null);
                 return;
@@ -281,12 +305,18 @@ export function useFarcasterSignIn(
                 setSession(response.data.session);
                 onSessionFoundRef.current?.(response.data);
             } else {
+                // No session data - check if session expired
+                if (wasAuthenticated.current) {
+                    onSessionExpiredRef.current?.();
+                }
                 setUser(null);
                 setSession(null);
             }
         } catch (err) {
-            // Session check failed - user is likely not logged in
-            // We don't set error here as this is expected behavior
+            // Session check failed - check if session expired
+            if (wasAuthenticated.current) {
+                onSessionExpiredRef.current?.();
+            }
             setUser(null);
             setSession(null);
         } finally {
@@ -330,28 +360,48 @@ export function useFarcasterSignIn(
             }
 
             // No valid session, proceed with Farcaster sign-in
-            const token = await getTokenRef.current();
+            let token: string;
+            try {
+                token = await getTokenRef.current();
+            } catch (err) {
+                throw new FarcasterAuthError(
+                    "Failed to get Farcaster authentication token",
+                    'TOKEN_FETCH_FAILED',
+                    err instanceof Error ? err : undefined
+                );
+            }
 
             if (!token) {
-                throw new Error("Failed to get Farcaster authentication token");
+                throw new FarcasterAuthError(
+                    "No token returned from getToken function",
+                    'TOKEN_FETCH_FAILED'
+                );
             }
 
             // Send the token to the Better Auth backend via the farcaster plugin
             const response = await authClientRef.current.farcaster.signIn({ token });
 
             if (response.error) {
-                throw new Error(response.error.message || "Authentication failed");
+                const errorMessage = response.error.message || "Authentication failed";
+                // Detect specific error types
+                let errorCode: FarcasterAuthError['code'] = 'UNKNOWN';
+                if (errorMessage.includes('rate limit') || response.error.status === 429) {
+                    errorCode = 'RATE_LIMITED';
+                } else if (errorMessage.includes('invalid') || errorMessage.includes('expired')) {
+                    errorCode = 'INVALID_TOKEN';
+                }
+                throw new FarcasterAuthError(errorMessage, errorCode);
             }
 
             if (!response.data) {
-                throw new Error("No data received from server");
+                throw new FarcasterAuthError("No data received from server", 'UNKNOWN');
             }
 
             setUser(response.data.user);
             setSession(response.data.session);
             onSuccessRef.current?.(response.data);
         } catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
+            const error = FarcasterAuthError.from(err);
             setError(error);
             onErrorRef.current?.(error);
         } finally {
@@ -363,6 +413,7 @@ export function useFarcasterSignIn(
      * Sign out and clear local state
      */
     const signOut = useCallback(async () => {
+        setIsSigningOut(true);
         try {
             await authClientRef.current.signOut();
         } catch (err) {
@@ -372,6 +423,9 @@ export function useFarcasterSignIn(
             setSession(null);
             setError(null);
             hasCheckedSession.current = false;
+            wasAuthenticated.current = false;
+            setIsSigningOut(false);
+            onSignOutRef.current?.();
         }
     }, []);
 
@@ -381,6 +435,7 @@ export function useFarcasterSignIn(
         signIn,
         signOut,
         isLoading,
+        isSigningOut,
         isCheckingSession,
         error,
         user,
@@ -390,5 +445,3 @@ export function useFarcasterSignIn(
         refreshSession,
     };
 }
-
-

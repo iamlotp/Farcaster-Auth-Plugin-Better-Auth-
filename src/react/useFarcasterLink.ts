@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { FarcasterLinkResponse, FarcasterUser } from "../types";
+import { FarcasterAuthError } from "./errors";
 
 /**
  * Function type for getting a Farcaster Quick Auth token
@@ -8,23 +9,39 @@ import type { FarcasterLinkResponse, FarcasterUser } from "../types";
 export type GetFarcasterTokenFn = () => Promise<string>;
 
 /**
+ * Minimal type for Better Auth client with Farcaster plugin (link operations)
+ * Uses permissive types to be compatible with the actual Better Auth client
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface BetterAuthClientForLink {
+    farcaster: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        link: (data: { token: string }) => Promise<any>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        unlink: () => Promise<any>;
+    };
+}
+
+/**
  * Options for the useFarcasterLink hook
  */
 export interface UseFarcasterLinkOptions {
     /**
-     * The Better Auth client instance with Farcaster plugin
-     * Must have the farcasterAuthClient plugin configured
+     * The Better Auth client instance with Farcaster plugin configured.
+     * This should be the full auth client created with `createAuthClient` 
+     * and the `farcasterAuthClient` plugin.
+     * 
+     * @example
+     * ```ts
+     * import { createAuthClient } from "better-auth/react";
+     * import { farcasterAuthClient } from "better-auth-farcaster-plugin/client";
+     * 
+     * export const authClient = createAuthClient({
+     *   plugins: [farcasterAuthClient()],
+     * });
+     * ```
      */
-    authClient: {
-        link: (data: { token: string }) => Promise<{
-            data: FarcasterLinkResponse | null;
-            error: { message: string; status: number } | null;
-        }>;
-        unlink: () => Promise<{
-            data: FarcasterLinkResponse | null;
-            error: { message: string; status: number } | null;
-        }>;
-    };
+    authClient: BetterAuthClientForLink;
     /**
      * Function to get the Farcaster Quick Auth token for linking
      * This is typically obtained from @farcaster/auth-kit or @farcaster/frame-sdk
@@ -51,7 +68,7 @@ export interface UseFarcasterLinkOptions {
     /**
      * Callback fired when an operation fails
      */
-    onError?: (error: Error) => void;
+    onError?: (error: FarcasterAuthError) => void;
 }
 
 /**
@@ -82,7 +99,7 @@ export interface UseFarcasterLinkReturn {
     /**
      * Error that occurred during the last operation, if any
      */
-    error: Error | null;
+    error: FarcasterAuthError | null;
     /**
      * The updated user data after successful link/unlink
      */
@@ -118,6 +135,9 @@ export interface UseFarcasterLinkReturn {
  *     onUnlinkSuccess: () => {
  *       console.log("Unlinked!");
  *     },
+ *     onError: (error) => {
+ *       console.error("Error:", error.code, error.message);
+ *     },
  *   });
  * 
  *   if (currentUser.fid) {
@@ -143,8 +163,22 @@ export function useFarcasterLink(
 
     const [isLinking, setIsLinking] = useState(false);
     const [isUnlinking, setIsUnlinking] = useState(false);
-    const [error, setError] = useState<Error | null>(null);
+    const [error, setError] = useState<FarcasterAuthError | null>(null);
     const [user, setUser] = useState<FarcasterUser | null>(null);
+
+    // Use refs to store stable references to callbacks and client
+    const authClientRef = useRef(authClient);
+    const getTokenRef = useRef(getToken);
+    const onLinkSuccessRef = useRef(onLinkSuccess);
+    const onUnlinkSuccessRef = useRef(onUnlinkSuccess);
+    const onErrorRef = useRef(onError);
+
+    // Keep refs up to date
+    authClientRef.current = authClient;
+    getTokenRef.current = getToken;
+    onLinkSuccessRef.current = onLinkSuccess;
+    onUnlinkSuccessRef.current = onUnlinkSuccess;
+    onErrorRef.current = onError;
 
     const reset = useCallback(() => {
         setIsLinking(false);
@@ -159,59 +193,79 @@ export function useFarcasterLink(
 
         try {
             // Get the Farcaster Quick Auth token from the provided function
-            const token = await getToken();
+            let token: string;
+            try {
+                token = await getTokenRef.current();
+            } catch (err) {
+                throw new FarcasterAuthError(
+                    "Failed to get Farcaster authentication token",
+                    'TOKEN_FETCH_FAILED',
+                    err instanceof Error ? err : undefined
+                );
+            }
 
             if (!token) {
-                throw new Error("Failed to get Farcaster authentication token");
+                throw new FarcasterAuthError(
+                    "No token returned from getToken function",
+                    'TOKEN_FETCH_FAILED'
+                );
             }
 
             // Send the token to the Better Auth backend
-            const response = await authClient.link({ token });
+            const response = await authClientRef.current.farcaster.link({ token });
 
             if (response.error) {
-                throw new Error(response.error.message || "Linking failed");
+                const errorMessage = response.error.message || "Linking failed";
+                let errorCode: FarcasterAuthError['code'] = 'UNKNOWN';
+                if (errorMessage.includes('rate limit') || response.error.status === 429) {
+                    errorCode = 'RATE_LIMITED';
+                } else if (errorMessage.includes('invalid') || errorMessage.includes('expired')) {
+                    errorCode = 'INVALID_TOKEN';
+                }
+                throw new FarcasterAuthError(errorMessage, errorCode);
             }
 
             if (!response.data) {
-                throw new Error("No data received from server");
+                throw new FarcasterAuthError("No data received from server", 'UNKNOWN');
             }
 
             setUser(response.data.user);
-            onLinkSuccess?.(response.data);
+            onLinkSuccessRef.current?.(response.data);
         } catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
+            const error = FarcasterAuthError.from(err);
             setError(error);
-            onError?.(error);
+            onErrorRef.current?.(error);
         } finally {
             setIsLinking(false);
         }
-    }, [authClient, getToken, onLinkSuccess, onError]);
+    }, []); // No dependencies - uses refs
 
     const unlink = useCallback(async () => {
         setIsUnlinking(true);
         setError(null);
 
         try {
-            const response = await authClient.unlink();
+            const response = await authClientRef.current.farcaster.unlink();
 
             if (response.error) {
-                throw new Error(response.error.message || "Unlinking failed");
+                const errorMessage = response.error.message || "Unlinking failed";
+                throw new FarcasterAuthError(errorMessage, 'UNKNOWN');
             }
 
             if (!response.data) {
-                throw new Error("No data received from server");
+                throw new FarcasterAuthError("No data received from server", 'UNKNOWN');
             }
 
             setUser(response.data.user);
-            onUnlinkSuccess?.(response.data);
+            onUnlinkSuccessRef.current?.(response.data);
         } catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
+            const error = FarcasterAuthError.from(err);
             setError(error);
-            onError?.(error);
+            onErrorRef.current?.(error);
         } finally {
             setIsUnlinking(false);
         }
-    }, [authClient, onUnlinkSuccess, onError]);
+    }, []); // No dependencies - uses refs
 
     const isLoading = isLinking || isUnlinking;
 

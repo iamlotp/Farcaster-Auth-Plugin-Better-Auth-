@@ -6,9 +6,10 @@ A community-made plugin that allows you to authenticate users via [Farcaster Qui
 **Features:**
 - 🔐 Farcaster Quick Auth sign-in
 - 🔗 Link/unlink Farcaster accounts to existing users
-- ⚛️ Optional React hooks for easy integration
+- ⚛️ Optional React hooks with automatic session management
 - 📊 Built-in rate limiting
-- 🎯 Full TypeScript support
+- 🎯 Full TypeScript support with typed errors
+- 🔄 Automatic session restoration and expiration handling
 
 ## ⚙️ Setup
 
@@ -96,17 +97,14 @@ Add `farcasterAuthClient` as a plugin to your auth client:
 ```typescript
 // auth-client.ts
 import { createAuthClient } from "better-auth/react";
-import { farcasterAuthClient, type FarcasterAuthClient } from "better-auth-farcaster-plugin";
+import { farcasterAuthClient } from "better-auth-farcaster-plugin/client";
 
-const client = createAuthClient({
+export const authClient = createAuthClient({
     baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://example.com",
     plugins: [
         farcasterAuthClient(),
     ],
 });
-
-// Export with proper types
-export const authClient = client as typeof client & { farcaster: FarcasterAuthClient };
 ```
 
 ### 3. Database Setup
@@ -160,57 +158,6 @@ async function signInWithFarcaster() {
 }
 ```
 
-### Example React Component (Manual)
-
-```tsx
-'use client';
-import { sdk } from "@farcaster/miniapp-sdk";
-import { useState, useCallback } from "react";
-import { authClient } from "~/lib/auth/auth-client";
-
-export function SignInWithFarcasterButton() {
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string>();
-
-    const handleSignIn = useCallback(async () => {
-        try {
-            setIsLoading(true);
-            setError(undefined);
-            
-            // Get Quick Auth token
-            const { token } = await sdk.quickAuth.getToken();
-            
-            // Sign in with Better Auth
-            const { data, error } = await authClient.farcaster.signIn({ token });
-            
-            if (error) {
-                setError(error.message);
-                return;
-            }
-            
-            // User is now signed in!
-            console.log("Signed in:", data.user);
-            
-            // Signal that the app is ready
-            sdk.actions.ready();
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Unknown error");
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    return (
-        <div>
-            <button onClick={handleSignIn} disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign In With Farcaster"}
-            </button>
-            {error && <p className="text-red-500">{error}</p>}
-        </div>
-    );
-}
-```
-
 ## ⚛️ React Hooks (Optional)
 
 For React applications, we provide convenient hooks that handle loading states, errors, and the full authentication flow. Import from `better-auth-farcaster-plugin/react`.
@@ -224,6 +171,9 @@ A hook for handling Farcaster sign-in with **automatic session management**. The
 - 💾 Checks for saved sessions in cookies
 - ✅ Only authenticates when necessary
 - 📊 Exposes both `user` and `session` data
+- 🚪 Built-in `signOut` function
+- ⚠️ Session expiration detection
+- 🎯 Typed errors with error codes
 
 ```tsx
 'use client';
@@ -233,8 +183,10 @@ import sdk from "@farcaster/frame-sdk";
 
 export function SignInButton() {
     const { 
-        signIn, 
-        isLoading, 
+        signIn,
+        signOut,
+        isLoading,
+        isSigningOut,
         isCheckingSession,
         error, 
         user, 
@@ -243,7 +195,6 @@ export function SignInButton() {
         refreshSession 
     } = useFarcasterSignIn({
         authClient,  // Pass the full auth client
-        // Provide a function that returns the Farcaster Quick Auth token
         getToken: async () => {
             const result = await sdk.quickAuth.getToken();
             return result.token;
@@ -253,16 +204,21 @@ export function SignInButton() {
             sdk.actions.ready();
         },
         onSessionFound: (data) => {
-            // Called when an existing session is restored
             console.log("Session restored!", data.user);
             sdk.actions.ready();
         },
+        onSignOut: () => {
+            console.log("User signed out");
+        },
+        onSessionExpired: () => {
+            console.log("Session expired - please sign in again");
+        },
         onError: (error) => {
-            console.error("Sign-in failed:", error.message);
+            // error is a FarcasterAuthError with a code property
+            console.error("Error:", error.code, error.message);
         },
     });
 
-    // Show loading while checking for existing session
     if (isCheckingSession) {
         return <div>Loading...</div>;
     }
@@ -272,6 +228,9 @@ export function SignInButton() {
             <div>
                 <p>Welcome, {user?.name}!</p>
                 <p>Session expires: {new Date(session?.expiresAt).toLocaleString()}</p>
+                <button onClick={signOut} disabled={isSigningOut}>
+                    {isSigningOut ? "Signing out..." : "Sign Out"}
+                </button>
             </div>
         );
     }
@@ -296,16 +255,20 @@ export function SignInButton() {
 | `autoCheckSession` | `boolean` | ❌ | `true` | Whether to automatically check for existing session on mount |
 | `onSuccess` | `(response) => void` | ❌ | - | Callback fired on successful sign-in |
 | `onSessionFound` | `(data) => void` | ❌ | - | Callback fired when an existing session is found |
-| `onError` | `(error) => void` | ❌ | - | Callback fired on error |
+| `onSignOut` | `() => void` | ❌ | - | Callback fired when sign-out completes |
+| `onSessionExpired` | `() => void` | ❌ | - | Callback fired when session expires or becomes invalid |
+| `onError` | `(error: FarcasterAuthError) => void` | ❌ | - | Callback fired on error with typed error |
 
 #### `useFarcasterSignIn` Return Values
 
 | Value | Type | Description |
 |-------|------|-------------|
 | `signIn` | `() => Promise<void>` | Function to initiate sign-in (skips if already authenticated) |
+| `signOut` | `() => Promise<void>` | Function to sign out and clear local state |
 | `isLoading` | `boolean` | Whether sign-in is in progress |
+| `isSigningOut` | `boolean` | Whether sign-out is in progress |
 | `isCheckingSession` | `boolean` | Whether session validation is in progress (on mount) |
-| `error` | `Error \| null` | Error from the last attempt |
+| `error` | `FarcasterAuthError \| null` | Error from the last attempt with error code |
 | `user` | `FarcasterUser \| null` | The signed-in user data |
 | `session` | `Session \| null` | The current session data |
 | `isAuthenticated` | `boolean` | Whether a user is authenticated |
@@ -323,8 +286,8 @@ import { authClient } from "~/lib/auth/auth-client";
 import sdk from "@farcaster/frame-sdk";
 
 export function LinkFarcasterButton({ currentUser }) {
-    const { link, unlink, isLoading, isLinking, isUnlinking, error, user } = useFarcasterLink({
-        authClient: authClient.farcaster,
+    const { link, unlink, isLoading, isLinking, isUnlinking, error } = useFarcasterLink({
+        authClient,  // Pass the full auth client
         getToken: async () => {
             const result = await sdk.quickAuth.getToken();
             return result.token;
@@ -336,7 +299,7 @@ export function LinkFarcasterButton({ currentUser }) {
             console.log("Farcaster unlinked");
         },
         onError: (error) => {
-            console.error("Operation failed:", error.message);
+            console.error("Error:", error.code, error.message);
         },
     });
 
@@ -360,11 +323,11 @@ export function LinkFarcasterButton({ currentUser }) {
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `authClient` | `object` | ✅ | The Better Auth client with Farcaster plugin |
+| `authClient` | `BetterAuthClientForLink` | ✅ | The full Better Auth client with Farcaster plugin |
 | `getToken` | `() => Promise<string>` | ✅ | Function that returns a Farcaster Quick Auth token |
 | `onLinkSuccess` | `(response) => void` | ❌ | Callback fired on successful link |
 | `onUnlinkSuccess` | `(response) => void` | ❌ | Callback fired on successful unlink |
-| `onError` | `(error) => void` | ❌ | Callback fired on error |
+| `onError` | `(error: FarcasterAuthError) => void` | ❌ | Callback fired on error with typed error |
 
 #### `useFarcasterLink` Return Values
 
@@ -375,9 +338,43 @@ export function LinkFarcasterButton({ currentUser }) {
 | `isLoading` | `boolean` | Whether any operation is in progress |
 | `isLinking` | `boolean` | Whether linking is in progress |
 | `isUnlinking` | `boolean` | Whether unlinking is in progress |
-| `error` | `Error \| null` | Error from the last attempt |
+| `error` | `FarcasterAuthError \| null` | Error from the last attempt with error code |
 | `user` | `FarcasterUser \| null` | Updated user data after operation |
 | `reset` | `() => void` | Resets the hook state |
+
+## 🎯 Error Handling
+
+The plugin provides typed errors with error codes for better error handling:
+
+```typescript
+import { FarcasterAuthError, type FarcasterAuthErrorCode } from "better-auth-farcaster-plugin/react";
+
+// Error codes
+type FarcasterAuthErrorCode =
+    | 'INVALID_TOKEN'      // Token is invalid or malformed
+    | 'SESSION_EXPIRED'    // Session has expired
+    | 'RATE_LIMITED'       // Too many requests
+    | 'NETWORK_ERROR'      // Network request failed
+    | 'TOKEN_FETCH_FAILED' // Failed to get token from getToken function
+    | 'UNKNOWN';           // Unknown error
+
+// Usage
+onError: (error) => {
+    switch (error.code) {
+        case 'RATE_LIMITED':
+            console.log("Please wait before trying again");
+            break;
+        case 'INVALID_TOKEN':
+            console.log("Authentication failed - invalid token");
+            break;
+        case 'SESSION_EXPIRED':
+            console.log("Your session has expired");
+            break;
+        default:
+            console.error("Error:", error.message);
+    }
+}
+```
 
 ## 📚 API Reference
 
