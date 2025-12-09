@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { Session } from "better-auth";
 import type { FarcasterSignInResponse, FarcasterUser } from "../types";
 
@@ -227,12 +227,28 @@ export function useFarcasterSignIn(
     const [user, setUser] = useState<FarcasterUser | null>(null);
     const [session, setSession] = useState<Session | null>(null);
 
+    // Use refs to track if we've already checked the session and store stable references
+    const hasCheckedSession = useRef(false);
+    const authClientRef = useRef(authClient);
+    const onSessionFoundRef = useRef(onSessionFound);
+    const onSuccessRef = useRef(onSuccess);
+    const onErrorRef = useRef(onError);
+    const getTokenRef = useRef(getToken);
+
+    // Keep refs up to date
+    authClientRef.current = authClient;
+    onSessionFoundRef.current = onSessionFound;
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+    getTokenRef.current = getToken;
+
     const reset = useCallback(() => {
         setIsLoading(false);
         setIsCheckingSession(false);
         setError(null);
         setUser(null);
         setSession(null);
+        hasCheckedSession.current = false;
     }, []);
 
     /**
@@ -243,7 +259,7 @@ export function useFarcasterSignIn(
         setError(null);
 
         try {
-            const response = await authClient.getSession();
+            const response = await authClientRef.current.getSession();
 
             if (response.error) {
                 // Session check failed, but this is not necessarily an error
@@ -256,7 +272,7 @@ export function useFarcasterSignIn(
             if (response.data) {
                 setUser(response.data.user);
                 setSession(response.data.session);
-                onSessionFound?.(response.data);
+                onSessionFoundRef.current?.(response.data);
             } else {
                 setUser(null);
                 setSession(null);
@@ -269,13 +285,14 @@ export function useFarcasterSignIn(
         } finally {
             setIsCheckingSession(false);
         }
-    }, [authClient, onSessionFound]);
+    }, []); // No dependencies - uses refs
 
     /**
-     * Check for existing session on mount
+     * Check for existing session on mount (only once)
      */
     useEffect(() => {
-        if (autoCheckSession) {
+        if (autoCheckSession && !hasCheckedSession.current) {
+            hasCheckedSession.current = true;
             refreshSession();
         }
     }, [autoCheckSession, refreshSession]);
@@ -295,25 +312,25 @@ export function useFarcasterSignIn(
 
         try {
             // First, check if there's a valid session we might have missed
-            const sessionResponse = await authClient.getSession();
+            const sessionResponse = await authClientRef.current.getSession();
 
             if (sessionResponse.data && sessionResponse.data.session) {
                 // Valid session found, use it
                 setUser(sessionResponse.data.user);
                 setSession(sessionResponse.data.session);
-                onSessionFound?.(sessionResponse.data);
+                onSessionFoundRef.current?.(sessionResponse.data);
                 return;
             }
 
             // No valid session, proceed with Farcaster sign-in
-            const token = await getToken();
+            const token = await getTokenRef.current();
 
             if (!token) {
                 throw new Error("Failed to get Farcaster authentication token");
             }
 
             // Send the token to the Better Auth backend via the farcaster plugin
-            const response = await authClient.farcaster.signIn({ token });
+            const response = await authClientRef.current.farcaster.signIn({ token });
 
             if (response.error) {
                 throw new Error(response.error.message || "Authentication failed");
@@ -325,15 +342,15 @@ export function useFarcasterSignIn(
 
             setUser(response.data.user);
             setSession(response.data.session);
-            onSuccess?.(response.data);
+            onSuccessRef.current?.(response.data);
         } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
             setError(error);
-            onError?.(error);
+            onErrorRef.current?.(error);
         } finally {
             setIsLoading(false);
         }
-    }, [authClient, getToken, user, session, onSuccess, onSessionFound, onError]);
+    }, [user, session]); // Only depends on user/session state
 
     const isAuthenticated = user !== null && session !== null;
 
@@ -349,4 +366,5 @@ export function useFarcasterSignIn(
         refreshSession,
     };
 }
+
 
