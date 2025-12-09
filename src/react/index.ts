@@ -18,4 +18,4 @@ export type {
     FarcasterSignInResponse,
     FarcasterLinkResponse,
     FarcasterProfileResponse,
-} from "../FarcasterAuth";
+} from "../types";

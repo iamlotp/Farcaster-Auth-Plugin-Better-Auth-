@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import type { FarcasterLinkResponse, FarcasterUser } from "../FarcasterAuth";
+import type { FarcasterLinkResponse, FarcasterUser } from "../types";
 
 /**
  * Function type for getting a Farcaster Quick Auth token
@@ -16,11 +16,11 @@ export interface UseFarcasterLinkOptions {
      * Must have the farcasterAuthClient plugin configured
      */
     authClient: {
-        linkFarcasterAccount: (data: { token: string }) => Promise<{
+        link: (data: { token: string }) => Promise<{
             data: FarcasterLinkResponse | null;
             error: { message: string; status: number } | null;
         }>;
-        unlinkFarcasterAccount: () => Promise<{
+        unlink: () => Promise<{
             data: FarcasterLinkResponse | null;
             error: { message: string; status: number } | null;
         }>;
@@ -166,7 +166,7 @@ export function useFarcasterLink(
             }
 
             // Send the token to the Better Auth backend
-            const response = await authClient.linkFarcasterAccount({ token });
+            const response = await authClient.link({ token });
 
             if (response.error) {
                 throw new Error(response.error.message || "Linking failed");
@@ -192,7 +192,7 @@ export function useFarcasterLink(
         setError(null);
 
         try {
-            const response = await authClient.unlinkFarcasterAccount();
+            const response = await authClient.unlink();
 
             if (response.error) {
                 throw new Error(response.error.message || "Unlinking failed");

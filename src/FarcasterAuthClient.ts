@@ -1,6 +1,6 @@
 import type { BetterAuthClientPlugin } from "better-auth/client";
 import type { BetterFetchOption } from "@better-fetch/fetch";
-import type { FarcasterSignInResponse, FarcasterProfileResponse, FarcasterLinkResponse } from "./FarcasterAuth";
+import type { FarcasterSignInResponse, FarcasterProfileResponse, FarcasterLinkResponse } from "./types";
 
 // Response wrapper types (better-fetch returns { data, error })
 type FetchResponse<T> = {
@@ -25,7 +25,7 @@ export const farcasterAuthClient = () => {
                  * @param fetchOptions - Optional fetch configuration
                  * @returns The authenticated user and session
                  */
-                signInWithFarcaster: async (
+                signIn: async (
                     data: { token: string },
                     fetchOptions?: BetterFetchOption
                 ): Promise<FetchResponse<FarcasterSignInResponse>> => {
@@ -43,7 +43,7 @@ export const farcasterAuthClient = () => {
                  * @param fetchOptions - Optional fetch configuration
                  * @returns Success status and updated user
                  */
-                linkFarcasterAccount: async (
+                link: async (
                     data: { token: string },
                     fetchOptions?: BetterFetchOption
                 ): Promise<FetchResponse<FarcasterLinkResponse>> => {
@@ -60,7 +60,7 @@ export const farcasterAuthClient = () => {
                  * @param fetchOptions - Optional fetch configuration
                  * @returns Success status and updated user
                  */
-                unlinkFarcasterAccount: async (
+                unlink: async (
                     fetchOptions?: BetterFetchOption
                 ): Promise<FetchResponse<FarcasterLinkResponse>> => {
                     const res = await $fetch<FarcasterLinkResponse>("/farcaster/unlink", {
@@ -75,7 +75,7 @@ export const farcasterAuthClient = () => {
                  * @param fetchOptions - Optional fetch configuration
                  * @returns The user's Farcaster FID and profile data
                  */
-                getFarcasterProfile: async (
+                profile: async (
                     fetchOptions?: BetterFetchOption
                 ): Promise<FetchResponse<FarcasterProfileResponse>> => {
                     const res = await $fetch<FarcasterProfileResponse>("/farcaster/profile", {
@@ -98,18 +98,18 @@ export const farcasterAuthClient = () => {
 
 // Export types for consumers
 export type FarcasterAuthClient = {
-    signInWithFarcaster: (
+    signIn: (
         data: { token: string },
         fetchOptions?: BetterFetchOption
     ) => Promise<FetchResponse<FarcasterSignInResponse>>;
-    linkFarcasterAccount: (
+    link: (
         data: { token: string },
         fetchOptions?: BetterFetchOption
     ) => Promise<FetchResponse<FarcasterLinkResponse>>;
-    unlinkFarcasterAccount: (
+    unlink: (
         fetchOptions?: BetterFetchOption
     ) => Promise<FetchResponse<FarcasterLinkResponse>>;
-    getFarcasterProfile: (
+    profile: (
         fetchOptions?: BetterFetchOption
     ) => Promise<FetchResponse<FarcasterProfileResponse>>;
 };

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import type { FarcasterSignInResponse, FarcasterUser } from "../FarcasterAuth";
+import type { FarcasterSignInResponse, FarcasterUser } from "../types";
 
 /**
  * Function type for getting a Farcaster Quick Auth token
@@ -17,7 +17,7 @@ export interface UseFarcasterSignInOptions {
      * Must have the farcasterAuthClient plugin configured
      */
     authClient: {
-        signInWithFarcaster: (data: { token: string }) => Promise<{
+        signIn: (data: { token: string }) => Promise<{
             data: FarcasterSignInResponse | null;
             error: { message: string; status: number } | null;
         }>;
@@ -175,7 +175,7 @@ export function useFarcasterSignIn(
             }
 
             // Send the token to the Better Auth backend
-            const response = await authClient.signInWithFarcaster({ token });
+            const response = await authClient.signIn({ token });
 
             if (response.error) {
                 throw new Error(response.error.message || "Authentication failed");

@@ -149,7 +149,7 @@ async function signInWithFarcaster() {
     const { token } = await sdk.quickAuth.getToken();
     
     // Sign in with the token
-    const { data, error } = await authClient.farcaster.signInWithFarcaster({ token });
+    const { data, error } = await authClient.farcaster.signIn({ token });
     
     if (error) {
         console.error("Sign in failed:", error.message);
@@ -181,7 +181,7 @@ export function SignInWithFarcasterButton() {
             const { token } = await sdk.quickAuth.getToken();
             
             // Sign in with Better Auth
-            const { data, error } = await authClient.farcaster.signInWithFarcaster({ token });
+            const { data, error } = await authClient.farcaster.signIn({ token });
             
             if (error) {
                 setError(error.message);
@@ -359,20 +359,20 @@ export function LinkFarcasterButton({ currentUser }) {
 
 ```typescript
 // Sign in with Farcaster
-const { data, error } = await authClient.farcaster.signInWithFarcaster({ 
+const { data, error } = await authClient.farcaster.signIn({ 
     token: "quick-auth-token" 
 });
 
 // Link Farcaster to existing account (requires session)
-const { data, error } = await authClient.farcaster.linkFarcasterAccount({ 
+const { data, error } = await authClient.farcaster.link({ 
     token: "quick-auth-token" 
 });
 
 // Unlink Farcaster from account (requires session)
-const { data, error } = await authClient.farcaster.unlinkFarcasterAccount();
+const { data, error } = await authClient.farcaster.unlink();
 
 // Get Farcaster profile (requires session)
-const { data, error } = await authClient.farcaster.getFarcasterProfile();
+const { data, error } = await authClient.farcaster.profile();
 ```
 
 ### Response Types

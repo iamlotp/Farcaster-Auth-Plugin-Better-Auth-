@@ -1,59 +1,29 @@
-import type { BetterAuthPlugin, User as BetterAuthUser, Session } from "better-auth";
+import type { BetterAuthPlugin } from "better-auth";
 import { APIError, sessionMiddleware } from "better-auth/api";
 import { setSessionCookie } from 'better-auth/cookies';
 import { createAuthEndpoint } from "better-auth/api";
 import { createClient, Errors } from "@farcaster/quick-auth";
 import { z } from "zod";
 
+// Import and re-export types from the shared types file
+import type {
+    FarcasterUser,
+    FarcasterPluginOptions,
+    FarcasterSignInResponse,
+    FarcasterProfileResponse,
+    FarcasterLinkResponse,
+} from "./types";
+
+export type {
+    FarcasterUser,
+    FarcasterPluginOptions,
+    FarcasterSignInResponse,
+    FarcasterProfileResponse,
+    FarcasterLinkResponse,
+};
+
 // Type for user records from the adapter
 type UserRecord = { id: string;[key: string]: unknown };
-
-// Extended user type with Farcaster FID
-export type FarcasterUser = BetterAuthUser & { fid?: number | null };
-
-// Plugin options
-export interface FarcasterPluginOptions {
-    /**
-     * The domain of your application (e.g., "myapp.com" or "https://myapp.com")
-     * Used to verify the JWT token's audience
-     */
-    domain: string;
-    /**
-     * Optional function to resolve additional user data from Farcaster
-     * @param fid - The Farcaster ID
-     * @returns Additional user data to store
-     */
-    resolveUserData?: (fid: number) => Promise<{
-        name?: string;
-        email?: string;
-        image?: string;
-    }>;
-    /**
-     * Cookie configuration options
-     */
-    cookieOptions?: {
-        secure?: boolean;
-        sameSite?: "strict" | "lax" | "none";
-        httpOnly?: boolean;
-        path?: string;
-    };
-}
-
-// Response types
-export interface FarcasterSignInResponse {
-    user: FarcasterUser;
-    session: Session;
-}
-
-export interface FarcasterProfileResponse {
-    fid: number;
-    user: FarcasterUser;
-}
-
-export interface FarcasterLinkResponse {
-    success: boolean;
-    user: FarcasterUser;
-}
 
 // Input schemas
 const signInSchema = z.object({
@@ -97,7 +67,7 @@ export const farcasterAuth = (options: FarcasterPluginOptions) => {
             /**
              * Sign in with Farcaster Quick Auth token
              */
-            signInWithFarcaster: createAuthEndpoint(
+            signIn: createAuthEndpoint(
                 "/farcaster/sign-in",
                 {
                     method: "POST",
@@ -165,7 +135,7 @@ export const farcasterAuth = (options: FarcasterPluginOptions) => {
                         // Create session for the user
                         const session = await ctx.context.internalAdapter.createSession(
                             user.id,
-                            ctx
+                            false // rememberMe = true (dontRememberMe = false)
                         );
 
                         if (!session) {
@@ -211,7 +181,7 @@ export const farcasterAuth = (options: FarcasterPluginOptions) => {
             /**
              * Link an existing account to a Farcaster FID
              */
-            linkFarcasterAccount: createAuthEndpoint(
+            link: createAuthEndpoint(
                 "/farcaster/link",
                 {
                     method: "POST",
@@ -307,7 +277,7 @@ export const farcasterAuth = (options: FarcasterPluginOptions) => {
             /**
              * Unlink Farcaster from the current account
              */
-            unlinkFarcasterAccount: createAuthEndpoint(
+            unlink: createAuthEndpoint(
                 "/farcaster/unlink",
                 {
                     method: "POST",
@@ -359,7 +329,7 @@ export const farcasterAuth = (options: FarcasterPluginOptions) => {
             /**
              * Get the Farcaster profile for the current user
              */
-            getFarcasterProfile: createAuthEndpoint(
+            profile: createAuthEndpoint(
                 "/farcaster/profile",
                 {
                     method: "GET",
