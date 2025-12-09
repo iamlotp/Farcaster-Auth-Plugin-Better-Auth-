@@ -19,19 +19,17 @@ export interface SessionData {
 
 /**
  * Minimal type for Better Auth client with Farcaster plugin
- * This allows accepting the full auth client without requiring explicit method signatures
+ * Uses permissive types to be compatible with the actual Better Auth client
+ * which returns union types (Data | Error)
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface BetterAuthClientWithFarcaster {
     farcaster: {
-        signIn: (data: { token: string }) => Promise<{
-            data: FarcasterSignInResponse | null;
-            error: { message: string; status: number } | null;
-        }>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        signIn: (data: { token: string }) => Promise<any>;
     };
-    getSession: () => Promise<{
-        data: SessionData | null;
-        error: { message: string; status: number } | null;
-    }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getSession: () => Promise<any>;
 }
 
 /**
