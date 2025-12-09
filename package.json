@@ -1,8 +1,28 @@
 {
   "name": "better-auth-farcaster-plugin",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js",
+      "require": "./dist/react/index.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "react": [
+        "./dist/react/index.d.ts"
+      ]
+    }
+  },
   "files": [
     "dist",
     "README.md"
@@ -17,16 +37,18 @@
   "keywords": [
     "better-auth farcaster plugin",
     "better-auth farcaster",
-    "farcaster authentication"
+    "farcaster authentication",
+    "farcaster react hooks"
   ],
   "author": "RezB",
   "license": "ISC",
-  "description": "A community-made plug-in to authenticate Farcaster users",
+  "description": "A community-made plug-in to authenticate Farcaster users with optional React hooks",
   "dependencies": {
     "@farcaster/quick-auth": "^0.0.8"
   },
   "peerDependencies": {
     "better-auth": ">=1.2.0",
+    "react": ">=17.0.0",
     "zod": ">=3.0.0"
   },
   "peerDependenciesMeta": {
@@ -35,14 +57,19 @@
     },
     "zod": {
       "optional": false
+    },
+    "react": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@paralleldrive/cuid2": "^2.2.2",
     "@types/bun": "latest",
+    "@types/react": "^18.2.0",
     "better-auth": "^1.2.8",
     "nodemon": "^3.1.10",
     "npm-check-updates": "^18.0.1",
+    "react": "^18.2.0",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",

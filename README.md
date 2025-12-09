@@ -3,6 +3,13 @@
 ## 🗒️ Description
 A community-made plugin that allows you to authenticate users via [Farcaster Quick Auth](https://docs.farcaster.xyz/developers/guides/auth-kit/quick-auth). This plugin provides a seamless integration with Better Auth to support Farcaster-based authentication in your applications.
 
+**Features:**
+- 🔐 Farcaster Quick Auth sign-in
+- 🔗 Link/unlink Farcaster accounts to existing users
+- ⚛️ Optional React hooks for easy integration
+- 📊 Built-in rate limiting
+- 🎯 Full TypeScript support
+
 ## ⚙️ Setup
 
 ### Installation
@@ -25,6 +32,7 @@ This plugin requires the following peer dependencies:
 
 - `better-auth` (>=1.2.0)
 - `zod` (>=3.0.0)
+- `react` (>=17.0.0) - *Optional, only needed for React hooks*
 
 ## 📒 How To Use
 
@@ -152,7 +160,7 @@ async function signInWithFarcaster() {
 }
 ```
 
-### Example React Component
+### Example React Component (Manual)
 
 ```tsx
 'use client';
@@ -202,6 +210,139 @@ export function SignInWithFarcasterButton() {
     );
 }
 ```
+
+## ⚛️ React Hooks (Optional)
+
+For React applications, we provide convenient hooks that handle loading states, errors, and the full authentication flow. Import from `better-auth-farcaster-plugin/react`.
+
+### `useFarcasterSignIn`
+
+A hook for handling Farcaster sign-in with automatic state management.
+
+```tsx
+'use client';
+import { useFarcasterSignIn } from "better-auth-farcaster-plugin/react";
+import { authClient } from "~/lib/auth/auth-client";
+import sdk from "@farcaster/frame-sdk";
+
+export function SignInButton() {
+    const { signIn, isLoading, error, user, isAuthenticated } = useFarcasterSignIn({
+        authClient: authClient.farcaster,
+        // Provide a function that returns the Farcaster Quick Auth token
+        getToken: async () => {
+            const result = await sdk.quickAuth.getToken();
+            return result.token;
+        },
+        onSuccess: (response) => {
+            console.log("Signed in!", response.user);
+            sdk.actions.ready();
+        },
+        onError: (error) => {
+            console.error("Sign-in failed:", error.message);
+        },
+    });
+
+    if (isAuthenticated) {
+        return <div>Welcome, {user?.name}!</div>;
+    }
+
+    return (
+        <div>
+            <button onClick={signIn} disabled={isLoading}>
+                {isLoading ? "Signing in..." : "Sign in with Farcaster"}
+            </button>
+            {error && <p className="text-red-500">{error.message}</p>}
+        </div>
+    );
+}
+```
+
+#### `useFarcasterSignIn` Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `authClient` | `object` | ✅ | The Better Auth client with Farcaster plugin |
+| `getToken` | `() => Promise<string>` | ✅ | Function that returns a Farcaster Quick Auth token |
+| `onSuccess` | `(response) => void` | ❌ | Callback fired on successful sign-in |
+| `onError` | `(error) => void` | ❌ | Callback fired on error |
+
+#### `useFarcasterSignIn` Return Values
+
+| Value | Type | Description |
+|-------|------|-------------|
+| `signIn` | `() => Promise<void>` | Function to initiate sign-in |
+| `isLoading` | `boolean` | Whether sign-in is in progress |
+| `error` | `Error \| null` | Error from the last attempt |
+| `user` | `FarcasterUser \| null` | The signed-in user data |
+| `isAuthenticated` | `boolean` | Whether a user is authenticated |
+| `reset` | `() => void` | Resets the hook state |
+
+### `useFarcasterLink`
+
+A hook for linking/unlinking Farcaster accounts to existing users.
+
+```tsx
+'use client';
+import { useFarcasterLink } from "better-auth-farcaster-plugin/react";
+import { authClient } from "~/lib/auth/auth-client";
+import sdk from "@farcaster/frame-sdk";
+
+export function LinkFarcasterButton({ currentUser }) {
+    const { link, unlink, isLoading, isLinking, isUnlinking, error, user } = useFarcasterLink({
+        authClient: authClient.farcaster,
+        getToken: async () => {
+            const result = await sdk.quickAuth.getToken();
+            return result.token;
+        },
+        onLinkSuccess: (response) => {
+            console.log("Linked FID:", response.user.fid);
+        },
+        onUnlinkSuccess: (response) => {
+            console.log("Farcaster unlinked");
+        },
+        onError: (error) => {
+            console.error("Operation failed:", error.message);
+        },
+    });
+
+    if (currentUser.fid) {
+        return (
+            <button onClick={unlink} disabled={isLoading}>
+                {isUnlinking ? "Unlinking..." : "Unlink Farcaster"}
+            </button>
+        );
+    }
+
+    return (
+        <button onClick={link} disabled={isLoading}>
+            {isLinking ? "Linking..." : "Link Farcaster Account"}
+        </button>
+    );
+}
+```
+
+#### `useFarcasterLink` Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `authClient` | `object` | ✅ | The Better Auth client with Farcaster plugin |
+| `getToken` | `() => Promise<string>` | ✅ | Function that returns a Farcaster Quick Auth token |
+| `onLinkSuccess` | `(response) => void` | ❌ | Callback fired on successful link |
+| `onUnlinkSuccess` | `(response) => void` | ❌ | Callback fired on successful unlink |
+| `onError` | `(error) => void` | ❌ | Callback fired on error |
+
+#### `useFarcasterLink` Return Values
+
+| Value | Type | Description |
+|-------|------|-------------|
+| `link` | `() => Promise<void>` | Function to link Farcaster account |
+| `unlink` | `() => Promise<void>` | Function to unlink Farcaster account |
+| `isLoading` | `boolean` | Whether any operation is in progress |
+| `isLinking` | `boolean` | Whether linking is in progress |
+| `isUnlinking` | `boolean` | Whether unlinking is in progress |
+| `error` | `Error \| null` | Error from the last attempt |
+| `user` | `FarcasterUser \| null` | Updated user data after operation |
+| `reset` | `() => void` | Resets the hook state |
 
 ## 📚 API Reference
 
@@ -269,6 +410,7 @@ The plugin includes built-in rate limiting for authentication endpoints:
 - The `fid` field is unique, so each Farcaster account can only be linked to one user
 - Users created through Farcaster sign-in have auto-verified emails (set to `{fid}@farcaster.local` by default)
 - Use the `resolveUserData` option to fetch real user data from Farcaster APIs
+- React hooks are optional and only loaded when importing from `/react`
 
 ## 🔗 Dependencies
 
