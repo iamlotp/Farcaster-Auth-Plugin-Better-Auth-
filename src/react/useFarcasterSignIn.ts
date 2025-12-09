@@ -30,6 +30,8 @@ export interface BetterAuthClientWithFarcaster {
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getSession: () => Promise<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    signOut: () => Promise<any>;
 }
 
 /**
@@ -138,6 +140,11 @@ export interface UseFarcasterSignInReturn {
      * Manually refresh the session from the server
      */
     refreshSession: () => Promise<void>;
+    /**
+     * Sign out the current user and clear local state
+     * This calls authClient.signOut() and resets the hook state
+     */
+    signOut: () => Promise<void>;
 }
 
 /**
@@ -352,10 +359,27 @@ export function useFarcasterSignIn(
         }
     }, [user, session]); // Only depends on user/session state
 
+    /**
+     * Sign out and clear local state
+     */
+    const signOut = useCallback(async () => {
+        try {
+            await authClientRef.current.signOut();
+        } catch (err) {
+            // Ignore sign out errors, still clear local state
+        } finally {
+            setUser(null);
+            setSession(null);
+            setError(null);
+            hasCheckedSession.current = false;
+        }
+    }, []);
+
     const isAuthenticated = user !== null && session !== null;
 
     return {
         signIn,
+        signOut,
         isLoading,
         isCheckingSession,
         error,
