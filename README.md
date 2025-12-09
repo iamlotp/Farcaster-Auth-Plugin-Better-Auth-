@@ -217,7 +217,13 @@ For React applications, we provide convenient hooks that handle loading states, 
 
 ### `useFarcasterSignIn`
 
-A hook for handling Farcaster sign-in with automatic state management.
+A hook for handling Farcaster sign-in with **automatic session management**. The hook automatically checks for existing sessions on mount and only triggers the sign-in flow if no valid session exists.
+
+**Features:**
+- 🔄 Automatic session restoration on mount
+- 💾 Checks for saved sessions in cookies
+- ✅ Only authenticates when necessary
+- 📊 Exposes both `user` and `session` data
 
 ```tsx
 'use client';
@@ -226,8 +232,17 @@ import { authClient } from "~/lib/auth/auth-client";
 import sdk from "@farcaster/frame-sdk";
 
 export function SignInButton() {
-    const { signIn, isLoading, error, user, isAuthenticated } = useFarcasterSignIn({
-        authClient: authClient.farcaster,
+    const { 
+        signIn, 
+        isLoading, 
+        isCheckingSession,
+        error, 
+        user, 
+        session,
+        isAuthenticated,
+        refreshSession 
+    } = useFarcasterSignIn({
+        authClient,  // Pass the full auth client
         // Provide a function that returns the Farcaster Quick Auth token
         getToken: async () => {
             const result = await sdk.quickAuth.getToken();
@@ -237,13 +252,28 @@ export function SignInButton() {
             console.log("Signed in!", response.user);
             sdk.actions.ready();
         },
+        onSessionFound: (data) => {
+            // Called when an existing session is restored
+            console.log("Session restored!", data.user);
+            sdk.actions.ready();
+        },
         onError: (error) => {
             console.error("Sign-in failed:", error.message);
         },
     });
 
+    // Show loading while checking for existing session
+    if (isCheckingSession) {
+        return <div>Loading...</div>;
+    }
+
     if (isAuthenticated) {
-        return <div>Welcome, {user?.name}!</div>;
+        return (
+            <div>
+                <p>Welcome, {user?.name}!</p>
+                <p>Session expires: {new Date(session?.expiresAt).toLocaleString()}</p>
+            </div>
+        );
     }
 
     return (
@@ -259,23 +289,28 @@ export function SignInButton() {
 
 #### `useFarcasterSignIn` Options
 
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `authClient` | `object` | ✅ | The Better Auth client with Farcaster plugin |
-| `getToken` | `() => Promise<string>` | ✅ | Function that returns a Farcaster Quick Auth token |
-| `onSuccess` | `(response) => void` | ❌ | Callback fired on successful sign-in |
-| `onError` | `(error) => void` | ❌ | Callback fired on error |
+| Option | Type | Required | Default | Description |
+|--------|------|----------|---------|-------------|
+| `authClient` | `BetterAuthClientWithFarcaster` | ✅ | - | The full Better Auth client with Farcaster plugin |
+| `getToken` | `() => Promise<string>` | ✅ | - | Function that returns a Farcaster Quick Auth token |
+| `autoCheckSession` | `boolean` | ❌ | `true` | Whether to automatically check for existing session on mount |
+| `onSuccess` | `(response) => void` | ❌ | - | Callback fired on successful sign-in |
+| `onSessionFound` | `(data) => void` | ❌ | - | Callback fired when an existing session is found |
+| `onError` | `(error) => void` | ❌ | - | Callback fired on error |
 
 #### `useFarcasterSignIn` Return Values
 
 | Value | Type | Description |
 |-------|------|-------------|
-| `signIn` | `() => Promise<void>` | Function to initiate sign-in |
+| `signIn` | `() => Promise<void>` | Function to initiate sign-in (skips if already authenticated) |
 | `isLoading` | `boolean` | Whether sign-in is in progress |
+| `isCheckingSession` | `boolean` | Whether session validation is in progress (on mount) |
 | `error` | `Error \| null` | Error from the last attempt |
 | `user` | `FarcasterUser \| null` | The signed-in user data |
+| `session` | `Session \| null` | The current session data |
 | `isAuthenticated` | `boolean` | Whether a user is authenticated |
 | `reset` | `() => void` | Resets the hook state |
+| `refreshSession` | `() => Promise<void>` | Manually refresh session from the server |
 
 ### `useFarcasterLink`
 

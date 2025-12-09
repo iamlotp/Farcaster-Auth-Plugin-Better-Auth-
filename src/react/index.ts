@@ -4,6 +4,8 @@ export type {
     UseFarcasterSignInOptions,
     UseFarcasterSignInReturn,
     GetFarcasterTokenFn,
+    SessionData,
+    BetterAuthClientWithFarcaster,
 } from "./useFarcasterSignIn";
 
 export { useFarcasterLink } from "./useFarcasterLink";
