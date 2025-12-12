@@ -8,6 +8,7 @@
     "module": "ESNext",
     "allowJs": true,
     "outDir": "./dist",
+    "jsx": "react-jsx",
     "declaration": true,
     "sourceMap": true,
     "esModuleInterop": true,

@@ -1,5 +1,18 @@
 // React hooks for Farcaster authentication
 export { useFarcasterSignIn } from "./useFarcasterSignIn";
+
+// React context and provider for Farcaster authentication
+export {
+    FarcasterProvider,
+    useFarcaster,
+    useFarcasterAuth,
+    useFarcasterLinking,
+} from "./FarcasterContext";
+export type {
+    FarcasterContextValue,
+    FarcasterProviderOptions,
+    FarcasterProviderProps,
+} from "./FarcasterContext";
 export type {
     UseFarcasterSignInOptions,
     UseFarcasterSignInReturn,
