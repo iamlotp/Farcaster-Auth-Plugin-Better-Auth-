@@ -162,6 +162,108 @@ async function signInWithFarcaster() {
 
 For React applications, we provide convenient hooks that handle loading states, errors, and the full authentication flow. Import from `better-auth-farcaster-plugin/react`.
 
+### `FarcasterProvider` & `useFarcaster`
+
+For applications that need to access Farcaster authentication state across multiple components, use the `FarcasterProvider` context provider. This initializes both sign-in and link hooks and makes their values available throughout your component tree.
+
+```tsx
+'use client';
+import { 
+    FarcasterProvider, 
+    useFarcaster,
+    useFarcasterAuth,
+    useFarcasterLinking 
+} from "better-auth-farcaster-plugin/react";
+import { authClient } from "~/lib/auth/auth-client";
+import sdk from "@farcaster/frame-sdk";
+
+const getToken = async () => {
+    const result = await sdk.quickAuth.getToken();
+    return result.token;
+};
+
+// Wrap your app with the provider
+function App() {
+    return (
+        <FarcasterProvider
+            signInOptions={{
+                authClient,
+                getToken,
+                onSuccess: (response) => console.log("Signed in!", response.user),
+                onSessionFound: (data) => console.log("Session restored!", data.user),
+                onError: (error) => console.error("Error:", error.message),
+            }}
+            linkOptions={{
+                onLinkSuccess: (response) => console.log("Linked!", response.user),
+                onUnlinkSuccess: () => console.log("Unlinked!"),
+            }}
+        >
+            <YourApp />
+        </FarcasterProvider>
+    );
+}
+
+// Access both signIn and link in any child component
+function ProfilePage() {
+    const { signIn, link } = useFarcaster();
+
+    if (signIn.isCheckingSession) {
+        return <div>Loading...</div>;
+    }
+
+    if (signIn.isAuthenticated) {
+        return (
+            <div>
+                <p>Welcome, {signIn.user?.name}!</p>
+                <button onClick={signIn.signOut} disabled={signIn.isSigningOut}>
+                    {signIn.isSigningOut ? "Signing out..." : "Sign Out"}
+                </button>
+                {!signIn.user?.fid && (
+                    <button onClick={link.link} disabled={link.isLoading}>
+                        {link.isLoading ? "Linking..." : "Link Farcaster"}
+                    </button>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <button onClick={signIn.signIn} disabled={signIn.isLoading}>
+            {signIn.isLoading ? "Signing in..." : "Sign in with Farcaster"}
+        </button>
+    );
+}
+
+// Or use convenience hooks for specific functionality
+function SignInButton() {
+    // Only get sign-in values
+    const { signIn, isLoading, isAuthenticated, user } = useFarcasterAuth();
+    // ...
+}
+
+function LinkButton() {
+    // Only get link values
+    const { link, unlink, isLoading } = useFarcasterLinking();
+    // ...
+}
+```
+
+#### `FarcasterProvider` Props
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `signInOptions` | `UseFarcasterSignInOptions` | ✅ | Options for the sign-in hook (authClient, getToken, callbacks) |
+| `linkOptions` | `Partial<UseFarcasterLinkOptions>` | ❌ | Options for the link hook (inherits authClient/getToken from signInOptions if not provided) |
+| `children` | `ReactNode` | ✅ | Child components that will have access to the context |
+
+#### Context Hooks
+
+| Hook | Returns | Description |
+|------|---------|-------------|
+| `useFarcaster()` | `{ signIn, link }` | Returns both signIn and link context values |
+| `useFarcasterAuth()` | `UseFarcasterSignInReturn` | Convenience hook for sign-in only |
+| `useFarcasterLinking()` | `UseFarcasterLinkReturn` | Convenience hook for link only |
+
 ### `useFarcasterSignIn`
 
 A hook for handling Farcaster sign-in with **automatic session management**. The hook automatically checks for existing sessions on mount and only triggers the sign-in flow if no valid session exists.
