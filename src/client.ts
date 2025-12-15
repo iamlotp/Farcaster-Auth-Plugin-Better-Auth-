@@ -3,7 +3,7 @@
 
 // Client plugin exports
 export { farcasterAuthClient } from './FarcasterAuthClient';
-export type { FarcasterAuthClient } from './FarcasterAuthClient';
+
 
 // Re-export types (they don't have runtime imports)
 export type {

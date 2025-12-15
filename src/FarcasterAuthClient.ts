@@ -1,115 +1,49 @@
 import type { BetterAuthClientPlugin } from "better-auth/client";
-import type { BetterFetchOption } from "@better-fetch/fetch";
-import type { FarcasterSignInResponse, FarcasterProfileResponse, FarcasterLinkResponse } from "./types";
-
-// Response wrapper types (better-fetch returns { data, error })
-type FetchResponse<T> = {
-    data: T | null;
-    error: {
-        message: string;
-        status: number;
-    } | null;
-};
+import type { farcasterAuth } from "./FarcasterAuth";
 
 /**
  * Farcaster authentication client plugin for Better Auth
+ * 
+ * This plugin uses $InferServerPlugin to automatically infer server endpoints,
+ * ensuring proper integration with other Better Auth plugins (e.g., social login).
+ * 
+ * Methods available on the client:
+ * - `authClient.farcaster.signIn({ token })` - Sign in with Farcaster Quick Auth
+ * - `authClient.farcaster.link({ token })` - Link Farcaster to existing account
+ * - `authClient.farcaster.unlink()` - Unlink Farcaster from account
+ * - `authClient.farcaster.profile()` - Get Farcaster profile for current user
+ * 
+ * @example
+ * ```ts
+ * import { createAuthClient } from "better-auth/react";
+ * import { farcasterAuthClient } from "better-auth-farcaster-plugin/client";
+ * 
+ * export const authClient = createAuthClient({
+ *   baseURL: "http://localhost:3000",
+ *   plugins: [
+ *     farcasterAuthClient(),
+ *     // Works alongside other plugins like social auth
+ *   ],
+ * });
+ * 
+ * // Use Farcaster auth
+ * const result = await authClient.farcaster.signIn({ token });
+ * 
+ * // Social auth still works on the same client
+ * await authClient.signIn.social({ provider: "twitter" });
+ * ```
  */
 export const farcasterAuthClient = () => {
     return {
         id: "farcaster",
-        getActions: ($fetch) => {
-            return {
-                /**
-                 * Sign in with a Farcaster Quick Auth token
-                 * @param data - Object containing the Farcaster Quick Auth token
-                 * @param fetchOptions - Optional fetch configuration
-                 * @returns The authenticated user and session
-                 */
-                signIn: async (
-                    data: { token: string },
-                    fetchOptions?: BetterFetchOption
-                ): Promise<FetchResponse<FarcasterSignInResponse>> => {
-                    const res = await $fetch<FarcasterSignInResponse>("/farcaster/sign-in", {
-                        method: "POST",
-                        body: data,
-                        ...fetchOptions,
-                    });
-                    return res as FetchResponse<FarcasterSignInResponse>;
-                },
-
-                /**
-                 * Link the current authenticated account to a Farcaster FID
-                 * @param data - Object containing the Farcaster Quick Auth token
-                 * @param fetchOptions - Optional fetch configuration
-                 * @returns Success status and updated user
-                 */
-                link: async (
-                    data: { token: string },
-                    fetchOptions?: BetterFetchOption
-                ): Promise<FetchResponse<FarcasterLinkResponse>> => {
-                    const res = await $fetch<FarcasterLinkResponse>("/farcaster/link", {
-                        method: "POST",
-                        body: data,
-                        ...fetchOptions,
-                    });
-                    return res as FetchResponse<FarcasterLinkResponse>;
-                },
-
-                /**
-                 * Unlink Farcaster from the current authenticated account
-                 * @param fetchOptions - Optional fetch configuration
-                 * @returns Success status and updated user
-                 */
-                unlink: async (
-                    fetchOptions?: BetterFetchOption
-                ): Promise<FetchResponse<FarcasterLinkResponse>> => {
-                    const res = await $fetch<FarcasterLinkResponse>("/farcaster/unlink", {
-                        method: "POST",
-                        ...fetchOptions,
-                    });
-                    return res as FetchResponse<FarcasterLinkResponse>;
-                },
-
-                /**
-                 * Get the Farcaster profile for the current authenticated user
-                 * @param fetchOptions - Optional fetch configuration
-                 * @returns The user's Farcaster FID and profile data
-                 */
-                profile: async (
-                    fetchOptions?: BetterFetchOption
-                ): Promise<FetchResponse<FarcasterProfileResponse>> => {
-                    const res = await $fetch<FarcasterProfileResponse>("/farcaster/profile", {
-                        method: "GET",
-                        ...fetchOptions,
-                    });
-                    return res as FetchResponse<FarcasterProfileResponse>;
-                },
-            };
-        },
-        // Define path methods explicitly for clarity
-        pathMethods: {
-            "/farcaster/sign-in": "POST",
-            "/farcaster/link": "POST",
-            "/farcaster/unlink": "POST",
-            "/farcaster/profile": "GET",
-        },
+        /**
+         * Infer server plugin endpoints for proper type inference.
+         * This enables Better Auth to automatically generate typed methods
+         * for all /farcaster/* endpoints defined in the server plugin.
+         */
+        $InferServerPlugin: {} as ReturnType<typeof farcasterAuth>,
     } satisfies BetterAuthClientPlugin;
 };
 
-// Export types for consumers
-export type FarcasterAuthClient = {
-    signIn: (
-        data: { token: string },
-        fetchOptions?: BetterFetchOption
-    ) => Promise<FetchResponse<FarcasterSignInResponse>>;
-    link: (
-        data: { token: string },
-        fetchOptions?: BetterFetchOption
-    ) => Promise<FetchResponse<FarcasterLinkResponse>>;
-    unlink: (
-        fetchOptions?: BetterFetchOption
-    ) => Promise<FetchResponse<FarcasterLinkResponse>>;
-    profile: (
-        fetchOptions?: BetterFetchOption
-    ) => Promise<FetchResponse<FarcasterProfileResponse>>;
-};
+// Note: Types are now automatically inferred by Better Auth via $InferServerPlugin.
+// The client methods will be available under authClient.farcaster.* with proper TypeScript types.
