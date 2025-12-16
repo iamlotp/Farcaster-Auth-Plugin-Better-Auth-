@@ -50,18 +50,7 @@ import type { farcasterCoreAuth } from "./server";
 export const farcasterCoreClient = () => {
     return {
         id: "farcaster" as const,
-        /**
-         * Infer server plugin endpoints for proper type inference.
-         * This enables Better Auth to automatically generate typed methods
-         * for all /farcaster/* endpoints defined in the server plugin.
-         */
         $InferServerPlugin: {} as ReturnType<typeof farcasterCoreAuth>,
-        /**
-         * Explicitly specify HTTP methods for endpoints.
-         * By default, Better Auth uses GET for endpoints without request bodies.
-         * Since our endpoints are defined as POST on the server, we need to
-         * specify this explicitly for the client to make correct requests.
-         */
         pathMethods: {
             "/farcaster/create-channel": "POST",
             "/farcaster/channel-status": "POST",
@@ -69,6 +58,89 @@ export const farcasterCoreClient = () => {
             "/farcaster/link": "POST",
             "/farcaster/unlink": "POST",
         },
+        getActions: ($fetch: any) => ({
+            /**
+             * Create a SIWF channel for QR code or deeplink authentication
+             * @param data - Optional parameters for the channel
+             * @returns Channel token, URL for QR/deeplink, and nonce
+             */
+            createChannel: async (data?: {
+                nonce?: string;
+                notBefore?: string;
+                expirationTime?: string;
+                requestId?: string;
+            }) => {
+                return $fetch("/farcaster/create-channel", {
+                    method: "POST",
+                    body: data || {},
+                });
+            },
+            /**
+             * Get the status of a SIWF channel (for polling)
+             * @param data - Object containing the channel token
+             * @returns Current channel status and signature data if completed
+             */
+            channelStatus: async (data: { channelToken: string }) => {
+                return $fetch("/farcaster/channel-status", {
+                    method: "POST",
+                    body: data,
+                });
+            },
+            /**
+             * Verify a SIWF signature and create a session
+             * @param data - Signature verification parameters
+             * @returns Success status, user, and session
+             */
+            verifySignature: async (data: {
+                channelToken: string;
+                message: string;
+                signature: string;
+                fid: number;
+                username?: string;
+                displayName?: string;
+                pfpUrl?: string;
+                bio?: string;
+            }) => {
+                return $fetch("/farcaster/verify-signature", {
+                    method: "POST",
+                    body: data,
+                });
+            },
+            /**
+             * Link Farcaster account to the currently authenticated user via SIWF
+             * @param data - Link parameters with signature data
+             * @returns Success status and updated user
+             */
+            link: async (data: {
+                channelToken: string;
+                message: string;
+                signature: string;
+                fid: number;
+            }) => {
+                return $fetch("/farcaster/link", {
+                    method: "POST",
+                    body: data,
+                });
+            },
+            /**
+             * Unlink Farcaster account from the currently authenticated user
+             * @returns Success status and updated user
+             */
+            unlink: async () => {
+                return $fetch("/farcaster/unlink", {
+                    method: "POST",
+                });
+            },
+            /**
+             * Get Farcaster profile for the currently authenticated user
+             * @returns Farcaster FID and user data
+             */
+            profile: async () => {
+                return $fetch("/farcaster/profile", {
+                    method: "GET",
+                });
+            },
+        }),
     } satisfies BetterAuthClientPlugin;
 };
 

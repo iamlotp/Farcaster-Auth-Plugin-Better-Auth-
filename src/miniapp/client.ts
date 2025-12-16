@@ -1,5 +1,11 @@
 import type { BetterAuthClientPlugin } from "better-auth/client";
 import type { farcasterMiniappAuth } from "./server";
+import type {
+    FarcasterUser,
+    FarcasterSignInResponse,
+    FarcasterProfileResponse,
+    FarcasterLinkResponse,
+} from "../types";
 
 /**
  * Farcaster Miniapp authentication client plugin for Better Auth
@@ -36,12 +42,49 @@ import type { farcasterMiniappAuth } from "./server";
 export const farcasterMiniappClient = () => {
     return {
         id: "farcaster-miniapp" as const,
-        /**
-         * Infer server plugin endpoints for proper type inference.
-         * This enables Better Auth to automatically generate typed methods
-         * for all /farcaster-miniapp/* endpoints defined in the server plugin.
-         */
         $InferServerPlugin: {} as ReturnType<typeof farcasterMiniappAuth>,
+        getActions: ($fetch: any) => ({
+            /**
+             * Sign in with Farcaster Quick Auth token
+             * @param data - Object containing the token from Farcaster Quick Auth
+             * @returns Session and user data
+             */
+            signIn: async (data: { token: string }) => {
+                return $fetch("/farcaster-miniapp/sign-in", {
+                    method: "POST",
+                    body: data,
+                });
+            },
+            /**
+             * Link Farcaster account to the currently authenticated user
+             * @param data - Object containing the token from Farcaster Quick Auth
+             * @returns Success status and updated user
+             */
+            link: async (data: { token: string }) => {
+                return $fetch("/farcaster-miniapp/link", {
+                    method: "POST",
+                    body: data,
+                });
+            },
+            /**
+             * Unlink Farcaster account from the currently authenticated user
+             * @returns Success status and updated user
+             */
+            unlink: async () => {
+                return $fetch("/farcaster-miniapp/unlink", {
+                    method: "POST",
+                });
+            },
+            /**
+             * Get Farcaster profile for the currently authenticated user
+             * @returns Farcaster FID and user data
+             */
+            profile: async () => {
+                return $fetch("/farcaster-miniapp/profile", {
+                    method: "GET",
+                });
+            },
+        }),
     } satisfies BetterAuthClientPlugin;
 };
 
