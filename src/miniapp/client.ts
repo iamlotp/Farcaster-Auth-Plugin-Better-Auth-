@@ -8,6 +8,26 @@ import type {
 } from "../types";
 
 /**
+ * Type for Farcaster Miniapp client actions
+ * Use this type for proper autocomplete when Better Auth's automatic
+ * type inference doesn't work with external plugins.
+ * 
+ * @example
+ * ```ts
+ * import type { FarcasterMiniappActions } from "better-auth-farcaster-plugin/miniapp/client";
+ * 
+ * // Access methods with proper types
+ * const result = await (authClient as any).farcasterMiniapp.signIn({ token });
+ * ```
+ */
+export interface FarcasterMiniappActions {
+    signIn: (data: { token: string }) => Promise<{ data: FarcasterSignInResponse | null; error: any }>;
+    link: (data: { token: string }) => Promise<{ data: FarcasterLinkResponse | null; error: any }>;
+    unlink: () => Promise<{ data: FarcasterLinkResponse | null; error: any }>;
+    profile: () => Promise<{ data: FarcasterProfileResponse | null; error: any }>;
+}
+
+/**
  * Farcaster Miniapp authentication client plugin for Better Auth
  * 
  * This plugin uses $InferServerPlugin to automatically infer server endpoints,

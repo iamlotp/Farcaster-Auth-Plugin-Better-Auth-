@@ -1,5 +1,55 @@
 import type { BetterAuthClientPlugin } from "better-auth/client";
 import type { farcasterCoreAuth } from "./server";
+import type {
+    FarcasterUser,
+    FarcasterProfileResponse,
+    FarcasterLinkResponse,
+} from "../types";
+import type {
+    SIWFChannelResponse,
+    SIWFVerifyResponse,
+} from "./types";
+
+/**
+ * Type for Farcaster Core (SIWF) client actions
+ * Use this type for proper autocomplete when Better Auth's automatic
+ * type inference doesn't work with external plugins.
+ * 
+ * @example
+ * ```ts
+ * import type { FarcasterCoreActions } from "better-auth-farcaster-plugin/core/client";
+ * 
+ * // Access methods with proper types
+ * const result = await (authClient as any).farcaster.createChannel();
+ * ```
+ */
+export interface FarcasterCoreActions {
+    createChannel: (data?: {
+        nonce?: string;
+        notBefore?: string;
+        expirationTime?: string;
+        requestId?: string;
+    }) => Promise<{ data: SIWFChannelResponse | null; error: any }>;
+    channelStatus: (data: { channelToken: string }) => Promise<{ data: any; error: any }>;
+    verifySignature: (data: {
+        channelToken: string;
+        message: string;
+        signature: string;
+        fid: number;
+        username?: string;
+        displayName?: string;
+        pfpUrl?: string;
+        bio?: string;
+    }) => Promise<{ data: SIWFVerifyResponse | null; error: any }>;
+    link: (data: {
+        channelToken: string;
+        message: string;
+        signature: string;
+        fid: number;
+    }) => Promise<{ data: FarcasterLinkResponse | null; error: any }>;
+    unlink: () => Promise<{ data: FarcasterLinkResponse | null; error: any }>;
+    profile: () => Promise<{ data: FarcasterProfileResponse | null; error: any }>;
+}
 
 /**
  * Farcaster Core authentication client plugin for Better Auth
