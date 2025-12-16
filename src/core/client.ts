@@ -2,6 +2,22 @@ import type { BetterAuthClientPlugin } from "better-auth/client";
 import type { farcasterCoreAuth } from "./server";
 
 /**
+ * Type definition for the Farcaster Core client plugin
+ * Use this type with `typeof farcasterCoreClient` for type inference
+ */
+export type FarcasterCoreClientPlugin = {
+    id: "farcaster";
+    $InferServerPlugin: ReturnType<typeof farcasterCoreAuth>;
+    pathMethods: {
+        "/farcaster/create-channel": "POST";
+        "/farcaster/channel-status": "POST";
+        "/farcaster/verify-signature": "POST";
+        "/farcaster/link": "POST";
+        "/farcaster/unlink": "POST";
+    };
+};
+
+/**
  * Farcaster Core authentication client plugin for Better Auth
  * 
  * This plugin uses $InferServerPlugin to automatically infer server endpoints
@@ -47,7 +63,7 @@ import type { farcasterCoreAuth } from "./server";
  * }
  * ```
  */
-export const farcasterCoreClient = () => {
+export const farcasterCoreClient = (): FarcasterCoreClientPlugin => {
     return {
         id: "farcaster",
         /**
@@ -69,7 +85,7 @@ export const farcasterCoreClient = () => {
             "/farcaster/link": "POST",
             "/farcaster/unlink": "POST",
         },
-    } satisfies BetterAuthClientPlugin;
+    };
 };
 
 // Re-export types for convenience
