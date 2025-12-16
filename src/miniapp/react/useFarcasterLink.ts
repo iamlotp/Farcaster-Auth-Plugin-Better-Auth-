@@ -14,7 +14,7 @@ export type GetFarcasterTokenFn = () => Promise<string>;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface BetterAuthClientForLink {
-    farcaster: {
+    farcasterMiniapp: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         link: (data: { token: string }) => Promise<any>;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -212,7 +212,7 @@ export function useFarcasterLink(
             }
 
             // Send the token to the Better Auth backend
-            const response = await authClientRef.current.farcaster.link({ token });
+            const response = await authClientRef.current.farcasterMiniapp.link({ token });
 
             if (response.error) {
                 const errorMessage = response.error.message || "Linking failed";
@@ -245,7 +245,7 @@ export function useFarcasterLink(
         setError(null);
 
         try {
-            const response = await authClientRef.current.farcaster.unlink();
+            const response = await authClientRef.current.farcasterMiniapp.unlink();
 
             if (response.error) {
                 const errorMessage = response.error.message || "Unlinking failed";

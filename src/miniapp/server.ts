@@ -116,7 +116,7 @@ export const farcasterMiniappAuth = (options: FarcasterMiniappPluginOptions) => 
     };
 
     return {
-        id: "farcaster",
+        id: "farcaster-miniapp",
         schema: {
             user: {
                 fields: {
@@ -133,7 +133,7 @@ export const farcasterMiniappAuth = (options: FarcasterMiniappPluginOptions) => 
              * Sign in with Farcaster Quick Auth token
              */
             signIn: createAuthEndpoint(
-                "/farcaster/sign-in",
+                "/farcaster-miniapp/sign-in",
                 {
                     method: "POST",
                     body: signInSchema,
@@ -247,7 +247,7 @@ export const farcasterMiniappAuth = (options: FarcasterMiniappPluginOptions) => 
              * Link an existing account to a Farcaster FID
              */
             link: createAuthEndpoint(
-                "/farcaster/link",
+                "/farcaster-miniapp/link",
                 {
                     method: "POST",
                     body: linkAccountSchema,
@@ -343,7 +343,7 @@ export const farcasterMiniappAuth = (options: FarcasterMiniappPluginOptions) => 
              * Unlink Farcaster from the current account
              */
             unlink: createAuthEndpoint(
-                "/farcaster/unlink",
+                "/farcaster-miniapp/unlink",
                 {
                     method: "POST",
                     use: [sessionMiddleware],
@@ -395,7 +395,7 @@ export const farcasterMiniappAuth = (options: FarcasterMiniappPluginOptions) => 
              * Get the Farcaster profile for the current user
              */
             profile: createAuthEndpoint(
-                "/farcaster/profile",
+                "/farcaster-miniapp/profile",
                 {
                     method: "GET",
                     use: [sessionMiddleware],
@@ -428,12 +428,12 @@ export const farcasterMiniappAuth = (options: FarcasterMiniappPluginOptions) => 
         // Rate limiting for authentication endpoints
         rateLimit: [
             {
-                pathMatcher: (path: string) => path === "/farcaster/sign-in",
+                pathMatcher: (path: string) => path === "/farcaster-miniapp/sign-in",
                 max: 10,
                 window: 60, // 10 requests per minute
             },
             {
-                pathMatcher: (path: string) => path === "/farcaster/link",
+                pathMatcher: (path: string) => path === "/farcaster-miniapp/link",
                 max: 5,
                 window: 60, // 5 requests per minute
             },

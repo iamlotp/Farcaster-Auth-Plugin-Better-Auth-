@@ -25,7 +25,7 @@ export interface SessionData {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface BetterAuthClientWithFarcaster {
-    farcaster: {
+    farcasterMiniapp: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         signIn: (data: { token: string }) => Promise<any>;
     };
@@ -380,7 +380,7 @@ export function useFarcasterSignIn(
             }
 
             // Send the token to the Better Auth backend via the farcaster plugin
-            const response = await authClientRef.current.farcaster.signIn({ token });
+            const response = await authClientRef.current.farcasterMiniapp.signIn({ token });
 
             if (response.error) {
                 const errorMessage = response.error.message || "Authentication failed";

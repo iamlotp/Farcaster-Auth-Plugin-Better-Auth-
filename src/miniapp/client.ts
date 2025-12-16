@@ -8,10 +8,10 @@ import type { farcasterMiniappAuth } from "./server";
  * ensuring proper integration with other Better Auth plugins (e.g., social login).
  * 
  * Methods available on the client:
- * - `authClient.farcaster.signIn({ token })` - Sign in with Farcaster Quick Auth
- * - `authClient.farcaster.link({ token })` - Link Farcaster to existing account
- * - `authClient.farcaster.unlink()` - Unlink Farcaster from account
- * - `authClient.farcaster.profile()` - Get Farcaster profile for current user
+ * - `authClient.farcasterMiniapp.signIn({ token })` - Sign in with Farcaster Quick Auth
+ * - `authClient.farcasterMiniapp.link({ token })` - Link Farcaster to existing account
+ * - `authClient.farcasterMiniapp.unlink()` - Unlink Farcaster from account
+ * - `authClient.farcasterMiniapp.profile()` - Get Farcaster profile for current user
  * 
  * @example
  * ```ts
@@ -27,7 +27,7 @@ import type { farcasterMiniappAuth } from "./server";
  * });
  * 
  * // Use Farcaster auth
- * const result = await authClient.farcaster.signIn({ token });
+ * const result = await authClient.farcasterMiniapp.signIn({ token });
  * 
  * // Social auth still works on the same client
  * await authClient.signIn.social({ provider: "twitter" });
@@ -35,11 +35,11 @@ import type { farcasterMiniappAuth } from "./server";
  */
 export const farcasterMiniappClient = () => {
     return {
-        id: "farcaster",
+        id: "farcaster-miniapp",
         /**
          * Infer server plugin endpoints for proper type inference.
          * This enables Better Auth to automatically generate typed methods
-         * for all /farcaster/* endpoints defined in the server plugin.
+         * for all /farcaster-miniapp/* endpoints defined in the server plugin.
          */
         $InferServerPlugin: {} as ReturnType<typeof farcasterMiniappAuth>,
     } satisfies BetterAuthClientPlugin;
