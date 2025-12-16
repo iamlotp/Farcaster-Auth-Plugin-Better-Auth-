@@ -31,6 +31,9 @@ pnpm add better-auth-farcaster-plugin
 - `better-auth` (>=1.2.0)
 - `zod` (>=3.0.0)
 
+**Optional (for Miniapp flow):**
+- `@farcaster/quick-auth` (>=0.0.8)
+
 **Optional (for Core/SIWF flow):**
 - `@farcaster/auth-client` (>=0.1.0)
 - `viem` (>=2.0.0)
@@ -348,7 +351,7 @@ function YourApp() {
 |----------|--------|-------------|
 | `/farcaster/create-channel` | POST | Create SIWF channel (returns QR URL) |
 | `/farcaster/channel-status` | POST | Poll channel status |
-| `/farcaster/verify-siwf` | POST | Verify signature and create session |
+| `/farcaster/verify-signature` | POST | Verify signature and create session |
 | `/farcaster/link` | POST | Link Farcaster to existing account |
 | `/farcaster/unlink` | POST | Unlink Farcaster from account |
 | `/farcaster/profile` | GET | Get Farcaster profile |

@@ -91,7 +91,7 @@ export const farcasterMiniappClient = () => {
     return {
         id: "farcaster-miniapp" as const,
         $InferServerPlugin: {} as ReturnType<typeof farcasterMiniappAuth>,
-        getActions: ($fetch: any) => ({
+        getActions: ($fetch: any): FarcasterMiniappActions => ({
             /**
              * Sign in with Farcaster Quick Auth token
              * @param data - Object containing the token from Farcaster Quick Auth
@@ -121,6 +121,7 @@ export const farcasterMiniappClient = () => {
             unlink: async () => {
                 return $fetch("/farcaster-miniapp/unlink", {
                     method: "POST",
+                    body: {},
                 });
             },
             /**
@@ -135,9 +136,6 @@ export const farcasterMiniappClient = () => {
         }),
     } satisfies BetterAuthClientPlugin;
 };
-
-// Backward compatible alias
-export const farcasterAuthClient = farcasterMiniappClient;
 
 // Re-export types for convenience
 export type {

@@ -137,7 +137,7 @@ export const farcasterCoreClient = () => {
             "/farcaster/link": "POST",
             "/farcaster/unlink": "POST",
         },
-        getActions: ($fetch: any) => ({
+        getActions: ($fetch: any): FarcasterCoreActions => ({
             /**
              * Create a SIWF channel for QR code or deeplink authentication
              * @param data - Optional parameters for the channel
@@ -208,6 +208,7 @@ export const farcasterCoreClient = () => {
             unlink: async () => {
                 return $fetch("/farcaster/unlink", {
                     method: "POST",
+                    body: {},
                 });
             },
             /**
