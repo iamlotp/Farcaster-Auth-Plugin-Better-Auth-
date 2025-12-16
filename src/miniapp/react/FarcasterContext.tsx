@@ -55,14 +55,14 @@ export interface FarcasterProviderProps extends FarcasterProviderOptions {
 const FarcasterContext = createContext<FarcasterContextValue | undefined>(undefined);
 
 /**
- * Provider component that wraps your application and provides Farcaster authentication context
+ * Provider component that wraps your application and provides Farcaster authentication context (Miniapp)
  *
  * This provider initializes both useFarcasterSignIn and useFarcasterLink hooks
  * and makes their values available to all child components via the useFarcaster hook.
  *
  * @example Basic usage:
  * ```tsx
- * import { FarcasterProvider, useFarcaster } from "better-auth-farcaster-plugin/react";
+ * import { FarcasterProvider, useFarcaster } from "better-auth-farcaster-plugin/miniapp/react";
  * import { authClient } from "./lib/auth-client";
  * import sdk from "@farcaster/frame-sdk";
  *
@@ -158,7 +158,7 @@ export function FarcasterProvider({
 }
 
 /**
- * Hook to access Farcaster authentication context
+ * Hook to access Farcaster authentication context (Miniapp)
  *
  * Must be used within a FarcasterProvider. Returns all values from both
  * useFarcasterSignIn and useFarcasterLink hooks.

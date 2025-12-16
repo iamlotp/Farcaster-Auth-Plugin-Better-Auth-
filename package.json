@@ -29,6 +29,36 @@
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react/index.js",
       "require": "./dist/react/index.js"
+    },
+    "./miniapp": {
+      "types": "./dist/miniapp/index.d.ts",
+      "import": "./dist/miniapp/index.js",
+      "require": "./dist/miniapp/index.js"
+    },
+    "./miniapp/client": {
+      "types": "./dist/miniapp/client.d.ts",
+      "import": "./dist/miniapp/client.js",
+      "require": "./dist/miniapp/client.js"
+    },
+    "./miniapp/react": {
+      "types": "./dist/miniapp/react/index.d.ts",
+      "import": "./dist/miniapp/react/index.js",
+      "require": "./dist/miniapp/react/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js",
+      "require": "./dist/core/index.js"
+    },
+    "./core/client": {
+      "types": "./dist/core/client.d.ts",
+      "import": "./dist/core/client.js",
+      "require": "./dist/core/client.js"
+    },
+    "./core/react": {
+      "types": "./dist/core/react/index.d.ts",
+      "import": "./dist/core/react/index.js",
+      "require": "./dist/core/react/index.js"
     }
   },
   "typesVersions": {
@@ -44,6 +74,24 @@
       ],
       "react": [
         "./dist/react/index.d.ts"
+      ],
+      "miniapp": [
+        "./dist/miniapp/index.d.ts"
+      ],
+      "miniapp/client": [
+        "./dist/miniapp/client.d.ts"
+      ],
+      "miniapp/react": [
+        "./dist/miniapp/react/index.d.ts"
+      ],
+      "core": [
+        "./dist/core/index.d.ts"
+      ],
+      "core/client": [
+        "./dist/core/client.d.ts"
+      ],
+      "core/react": [
+        "./dist/core/react/index.d.ts"
       ]
     }
   },
@@ -62,20 +110,31 @@
     "better-auth farcaster plugin",
     "better-auth farcaster",
     "farcaster authentication",
-    "farcaster react hooks"
+    "farcaster react hooks",
+    "sign in with farcaster",
+    "siwf"
   ],
   "author": "RezB",
   "license": "ISC",
   "description": "A community-made plug-in to authenticate Farcaster users with optional React hooks",
-  "dependencies": {
-    "@farcaster/quick-auth": "^0.0.8"
-  },
   "peerDependencies": {
+    "@farcaster/quick-auth": ">=0.0.8",
+    "@farcaster/auth-client": ">=0.1.0",
     "better-auth": ">=1.2.0",
     "react": ">=17.0.0",
+    "viem": ">=2.0.0",
     "zod": ">=3.0.0"
   },
   "peerDependenciesMeta": {
+    "@farcaster/quick-auth": {
+      "optional": true
+    },
+    "@farcaster/auth-client": {
+      "optional": true
+    },
+    "viem": {
+      "optional": true
+    },
     "better-auth": {
       "optional": false
     },
@@ -87,6 +146,7 @@
     }
   },
   "devDependencies": {
+    "@farcaster/auth-client": "^0.3.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "@types/bun": "latest",
     "@types/react": "^18.2.0",
@@ -97,6 +157,7 @@
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
+    "viem": "^2.0.0",
     "zod": "^3.23.8"
   },
   "repository": {

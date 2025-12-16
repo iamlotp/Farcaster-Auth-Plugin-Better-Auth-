@@ -1,8 +1,8 @@
 import type { BetterAuthClientPlugin } from "better-auth/client";
-import type { farcasterAuth } from "./FarcasterAuth";
+import type { farcasterMiniappAuth } from "./server";
 
 /**
- * Farcaster authentication client plugin for Better Auth
+ * Farcaster Miniapp authentication client plugin for Better Auth
  * 
  * This plugin uses $InferServerPlugin to automatically infer server endpoints,
  * ensuring proper integration with other Better Auth plugins (e.g., social login).
@@ -16,12 +16,12 @@ import type { farcasterAuth } from "./FarcasterAuth";
  * @example
  * ```ts
  * import { createAuthClient } from "better-auth/react";
- * import { farcasterAuthClient } from "better-auth-farcaster-plugin/client";
+ * import { farcasterMiniappClient } from "better-auth-farcaster-plugin/miniapp/client";
  * 
  * export const authClient = createAuthClient({
  *   baseURL: "http://localhost:3000",
  *   plugins: [
- *     farcasterAuthClient(),
+ *     farcasterMiniappClient(),
  *     // Works alongside other plugins like social auth
  *   ],
  * });
@@ -33,7 +33,7 @@ import type { farcasterAuth } from "./FarcasterAuth";
  * await authClient.signIn.social({ provider: "twitter" });
  * ```
  */
-export const farcasterAuthClient = () => {
+export const farcasterMiniappClient = () => {
     return {
         id: "farcaster",
         /**
@@ -41,9 +41,17 @@ export const farcasterAuthClient = () => {
          * This enables Better Auth to automatically generate typed methods
          * for all /farcaster/* endpoints defined in the server plugin.
          */
-        $InferServerPlugin: {} as ReturnType<typeof farcasterAuth>,
+        $InferServerPlugin: {} as ReturnType<typeof farcasterMiniappAuth>,
     } satisfies BetterAuthClientPlugin;
 };
 
-// Note: Types are now automatically inferred by Better Auth via $InferServerPlugin.
-// The client methods will be available under authClient.farcaster.* with proper TypeScript types.
+// Backward compatible alias
+export const farcasterAuthClient = farcasterMiniappClient;
+
+// Re-export types for convenience
+export type {
+    FarcasterUser,
+    FarcasterSignInResponse,
+    FarcasterProfileResponse,
+    FarcasterLinkResponse,
+} from "../types";

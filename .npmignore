@@ -20,3 +20,6 @@
 bun.lockb
 pnpm-lock.yaml
 package-lock.json
+
+# Auth client
+auth-client

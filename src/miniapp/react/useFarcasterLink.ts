@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import type { FarcasterLinkResponse, FarcasterUser } from "../types";
+import type { FarcasterLinkResponse, FarcasterUser } from "../../types";
 import { FarcasterAuthError } from "./errors";
 
 /**
@@ -29,15 +29,15 @@ export interface UseFarcasterLinkOptions {
     /**
      * The Better Auth client instance with Farcaster plugin configured.
      * This should be the full auth client created with `createAuthClient` 
-     * and the `farcasterAuthClient` plugin.
+     * and the `farcasterMiniappClient` plugin.
      * 
      * @example
      * ```ts
      * import { createAuthClient } from "better-auth/react";
-     * import { farcasterAuthClient } from "better-auth-farcaster-plugin/client";
+     * import { farcasterMiniappClient } from "better-auth-farcaster-plugin/miniapp/client";
      * 
      * export const authClient = createAuthClient({
-     *   plugins: [farcasterAuthClient()],
+     *   plugins: [farcasterMiniappClient()],
      * });
      * ```
      */
@@ -111,14 +111,14 @@ export interface UseFarcasterLinkReturn {
 }
 
 /**
- * React hook for linking/unlinking Farcaster accounts with Better Auth
+ * React hook for linking/unlinking Farcaster accounts with Better Auth (Miniapp context)
  * 
  * This hook provides a simple interface to link or unlink Farcaster accounts.
  * You need to provide a `getToken` function that obtains the Farcaster Quick Auth token.
  * 
  * @example Using with @farcaster/frame-sdk:
  * ```tsx
- * import { useFarcasterLink } from "better-auth-farcaster-plugin/react";
+ * import { useFarcasterLink } from "better-auth-farcaster-plugin/miniapp/react";
  * import { authClient } from "./lib/auth-client";
  * import sdk from "@farcaster/frame-sdk";
  * 

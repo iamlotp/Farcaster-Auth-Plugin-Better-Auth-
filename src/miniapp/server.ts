@@ -5,22 +5,52 @@ import { createAuthEndpoint } from "better-auth/api";
 import { createClient, Errors } from "@farcaster/quick-auth";
 import { z } from "zod";
 
-// Import and re-export types from the shared types file
+// Import types from shared types file
 import type {
     FarcasterUser,
-    FarcasterPluginOptions,
     FarcasterSignInResponse,
     FarcasterProfileResponse,
     FarcasterLinkResponse,
-} from "./types";
+} from "../types";
 
+// Re-export shared types for convenience
 export type {
     FarcasterUser,
-    FarcasterPluginOptions,
     FarcasterSignInResponse,
     FarcasterProfileResponse,
     FarcasterLinkResponse,
 };
+
+/**
+ * Plugin options for Farcaster Miniapp authentication
+ * Uses Farcaster Quick Auth for JWT verification in miniapp context
+ */
+export interface FarcasterMiniappPluginOptions {
+    /**
+     * The domain of your application (e.g., "myapp.com" or "https://myapp.com")
+     * Used to verify the JWT token's audience
+     */
+    domain: string;
+    /**
+     * Optional function to resolve additional user data from Farcaster
+     * @param fid - The Farcaster ID
+     * @returns Additional user data to store
+     */
+    resolveUserData?: (fid: number) => Promise<{
+        name?: string;
+        email?: string;
+        image?: string;
+    }>;
+    /**
+     * Cookie configuration options
+     */
+    cookieOptions?: {
+        secure?: boolean;
+        sameSite?: "strict" | "lax" | "none";
+        httpOnly?: boolean;
+        path?: string;
+    };
+}
 
 // Type for user records from the adapter
 type UserRecord = { id: string;[key: string]: unknown };
@@ -35,10 +65,45 @@ const linkAccountSchema = z.object({
 });
 
 /**
- * Farcaster authentication plugin for Better Auth
- * Uses Farcaster Quick Auth to verify JWT tokens
+ * Extract hostname from a URL string
+ * @param url - URL string (e.g., "https://example.com" or "example.com")
+ * @returns The hostname portion of the URL
  */
-export const farcasterAuth = (options: FarcasterPluginOptions) => {
+function getDomainFromUrl(url: string): string {
+    // If it's already just a hostname, return it
+    if (!url.includes("://") && !url.startsWith("//")) {
+        // Remove any port or path
+        return url.split(":")[0].split("/")[0];
+    }
+
+    try {
+        const parsedUrl = new URL(url);
+        return parsedUrl.hostname;
+    } catch {
+        // If parsing fails, try to extract hostname manually
+        const cleaned = url.replace(/^(https?:)?\/\//, "");
+        return cleaned.split(":")[0].split("/")[0];
+    }
+}
+
+/**
+ * Farcaster Miniapp authentication plugin for Better Auth
+ * Uses Farcaster Quick Auth to verify JWT tokens from miniapp context
+ * 
+ * @example
+ * ```ts
+ * import { farcasterMiniappAuth } from "better-auth-farcaster-plugin/miniapp";
+ * 
+ * export const auth = betterAuth({
+ *     plugins: [
+ *         farcasterMiniappAuth({
+ *             domain: "https://example.com",
+ *         }),
+ *     ],
+ * });
+ * ```
+ */
+export const farcasterMiniappAuth = (options: FarcasterMiniappPluginOptions) => {
     const client = createClient();
     const domain = getDomainFromUrl(options.domain);
 
@@ -375,25 +440,3 @@ export const farcasterAuth = (options: FarcasterPluginOptions) => {
         ],
     } satisfies BetterAuthPlugin;
 };
-
-/**
- * Extract hostname from a URL string
- * @param url - URL string (e.g., "https://example.com" or "example.com")
- * @returns The hostname portion of the URL
- */
-function getDomainFromUrl(url: string): string {
-    // If it's already just a hostname, return it
-    if (!url.includes("://") && !url.startsWith("//")) {
-        // Remove any port or path
-        return url.split(":")[0].split("/")[0];
-    }
-
-    try {
-        const parsedUrl = new URL(url);
-        return parsedUrl.hostname;
-    } catch {
-        // If parsing fails, try to extract hostname manually
-        const cleaned = url.replace(/^(https?:)?\/\//, "");
-        return cleaned.split(":")[0].split("/")[0];
-    }
-}

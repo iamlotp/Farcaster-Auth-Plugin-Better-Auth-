@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { Session } from "better-auth";
-import type { FarcasterSignInResponse, FarcasterUser } from "../types";
+import type { FarcasterSignInResponse, FarcasterUser } from "../../types";
 import { FarcasterAuthError } from "./errors";
 
 /**
@@ -42,15 +42,15 @@ export interface UseFarcasterSignInOptions {
     /**
      * The Better Auth client instance with Farcaster plugin configured.
      * This should be the full auth client created with `createAuthClient` 
-     * and the `farcasterAuthClient` plugin.
+     * and the `farcasterMiniappClient` plugin.
      * 
      * @example
      * ```ts
      * import { createAuthClient } from "better-auth/react";
-     * import { farcasterAuthClient } from "better-auth-farcaster-plugin/client";
+     * import { farcasterMiniappClient } from "better-auth-farcaster-plugin/miniapp/client";
      * 
      * export const authClient = createAuthClient({
-     *   plugins: [farcasterAuthClient()],
+     *   plugins: [farcasterMiniappClient()],
      * });
      * ```
      */
@@ -154,7 +154,7 @@ export interface UseFarcasterSignInReturn {
 }
 
 /**
- * React hook for Farcaster sign-in with Better Auth
+ * React hook for Farcaster sign-in with Better Auth (Miniapp context)
  * 
  * This hook provides a simple interface to authenticate users via Farcaster.
  * It automatically checks for existing sessions on mount and restores user state.
@@ -162,7 +162,7 @@ export interface UseFarcasterSignInReturn {
  * 
  * @example Using with @farcaster/frame-sdk:
  * ```tsx
- * import { useFarcasterSignIn } from "better-auth-farcaster-plugin/react";
+ * import { useFarcasterSignIn } from "better-auth-farcaster-plugin/miniapp/react";
  * import { authClient } from "./lib/auth-client";
  * import sdk from "@farcaster/frame-sdk";
  * 
@@ -196,12 +196,13 @@ export interface UseFarcasterSignInReturn {
  *       console.log("Session expired!");
  *     },
  *     onError: (error) => {
- *       console.error("Sign-in failed:", error.code, error.message);
+ *       // error is a FarcasterAuthError with a code property
+ *       console.error("Error:", error.code, error.message);
  *     },
  *   });
  * 
  *   if (isCheckingSession) {
- *     return <div>Checking session...</div>;
+ *     return <div>Loading...</div>;
  *   }
  * 
  *   if (isAuthenticated) {

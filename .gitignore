@@ -181,3 +181,6 @@ dist
 
 # Agent
 .agent
+
+# Auth client
+auth-client
