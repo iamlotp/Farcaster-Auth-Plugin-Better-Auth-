@@ -2,15 +2,6 @@ import type { BetterAuthClientPlugin } from "better-auth/client";
 import type { farcasterMiniappAuth } from "./server";
 
 /**
- * Type definition for the Farcaster Miniapp client plugin
- * Use this type with `typeof farcasterMiniappClient` for type inference
- */
-export type FarcasterMiniappClientPlugin = {
-    id: "farcaster-miniapp";
-    $InferServerPlugin: ReturnType<typeof farcasterMiniappAuth>;
-};
-
-/**
  * Farcaster Miniapp authentication client plugin for Better Auth
  * 
  * This plugin uses $InferServerPlugin to automatically infer server endpoints,
@@ -42,16 +33,16 @@ export type FarcasterMiniappClientPlugin = {
  * await authClient.signIn.social({ provider: "twitter" });
  * ```
  */
-export const farcasterMiniappClient = (): FarcasterMiniappClientPlugin => {
+export const farcasterMiniappClient = () => {
     return {
-        id: "farcaster-miniapp",
+        id: "farcaster-miniapp" as const,
         /**
          * Infer server plugin endpoints for proper type inference.
          * This enables Better Auth to automatically generate typed methods
          * for all /farcaster-miniapp/* endpoints defined in the server plugin.
          */
         $InferServerPlugin: {} as ReturnType<typeof farcasterMiniappAuth>,
-    };
+    } satisfies BetterAuthClientPlugin;
 };
 
 // Backward compatible alias
