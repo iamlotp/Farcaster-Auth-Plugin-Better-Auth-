@@ -56,6 +56,19 @@ export const farcasterCoreClient = () => {
          * for all /farcaster/* endpoints defined in the server plugin.
          */
         $InferServerPlugin: {} as ReturnType<typeof farcasterCoreAuth>,
+        /**
+         * Explicitly specify HTTP methods for endpoints.
+         * By default, Better Auth uses GET for endpoints without request bodies.
+         * Since our endpoints are defined as POST on the server, we need to
+         * specify this explicitly for the client to make correct requests.
+         */
+        pathMethods: {
+            "/farcaster/create-channel": "POST",
+            "/farcaster/channel-status": "POST",
+            "/farcaster/verify-siwf": "POST",
+            "/farcaster/link": "POST",
+            "/farcaster/unlink": "POST",
+        },
     } satisfies BetterAuthClientPlugin;
 };
 
