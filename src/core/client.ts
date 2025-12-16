@@ -52,6 +52,35 @@ export interface FarcasterCoreActions {
 }
 
 /**
+ * Helper function to get typed Farcaster Core actions from any authClient.
+ * Use this to get proper autocomplete when Better Auth's type inference fails.
+ * 
+ * @param authClient - Your Better Auth client instance (typed as any)
+ * @returns Typed FarcasterCoreActions object
+ * 
+ * @example
+ * ```ts
+ * import { createAuthClient } from "better-auth/react";
+ * import { farcasterCoreClient, getFarcasterCore } from "better-auth-farcaster-plugin/core/client";
+ * 
+ * const authClient = createAuthClient({
+ *   baseURL: "http://localhost:3000",
+ *   plugins: [farcasterCoreClient()],
+ * });
+ * 
+ * // Get typed Farcaster methods
+ * const farcaster = getFarcasterCore(authClient);
+ * 
+ * // Now you have proper autocomplete!
+ * const { data: channel } = await farcaster.createChannel();
+ * const status = await farcaster.channelStatus({ channelToken: channel.channelToken });
+ * ```
+ */
+export function getFarcasterCore(authClient: any): FarcasterCoreActions {
+    return authClient.farcaster as FarcasterCoreActions;
+}
+
+/**
  * Farcaster Core authentication client plugin for Better Auth
  * 
  * This plugin uses $InferServerPlugin to automatically infer server endpoints

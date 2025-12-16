@@ -28,6 +28,34 @@ export interface FarcasterMiniappActions {
 }
 
 /**
+ * Helper function to get typed Farcaster Miniapp actions from any authClient.
+ * Use this to get proper autocomplete when Better Auth's type inference fails.
+ * 
+ * @param authClient - Your Better Auth client instance (typed as any)
+ * @returns Typed FarcasterMiniappActions object
+ * 
+ * @example
+ * ```ts
+ * import { createAuthClient } from "better-auth/react";
+ * import { farcasterMiniappClient, getFarcasterMiniapp } from "better-auth-farcaster-plugin/miniapp/client";
+ * 
+ * const authClient = createAuthClient({
+ *   baseURL: "http://localhost:3000",
+ *   plugins: [farcasterMiniappClient()],
+ * });
+ * 
+ * // Get typed Farcaster methods
+ * const farcasterMiniapp = getFarcasterMiniapp(authClient);
+ * 
+ * // Now you have proper autocomplete!
+ * const result = await farcasterMiniapp.signIn({ token: "..." });
+ * ```
+ */
+export function getFarcasterMiniapp(authClient: any): FarcasterMiniappActions {
+    return authClient.farcasterMiniapp as FarcasterMiniappActions;
+}
+
+/**
  * Farcaster Miniapp authentication client plugin for Better Auth
  * 
  * This plugin uses $InferServerPlugin to automatically infer server endpoints,
