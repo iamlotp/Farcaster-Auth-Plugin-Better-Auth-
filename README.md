@@ -333,15 +333,25 @@ function YourApp() {
 
 ### Server Endpoints
 
-| Endpoint | Method | Flow | Description |
-|----------|--------|------|-------------|
-| `/farcaster/sign-in` | POST | Miniapp | Sign in with Quick Auth token |
-| `/farcaster/create-channel` | POST | Core | Create SIWF channel (returns QR URL) |
-| `/farcaster/channel-status` | POST | Core | Poll channel status |
-| `/farcaster/verify-siwf` | POST | Core | Verify signature and create session |
-| `/farcaster/link` | POST | Both | Link Farcaster to existing account |
-| `/farcaster/unlink` | POST | Both | Unlink Farcaster from account |
-| `/farcaster/profile` | GET | Both | Get Farcaster profile |
+**Miniapp Flow** (plugin ID: `farcaster-miniapp`):
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/farcaster-miniapp/sign-in` | POST | Sign in with Quick Auth token |
+| `/farcaster-miniapp/link` | POST | Link Farcaster to existing account |
+| `/farcaster-miniapp/unlink` | POST | Unlink Farcaster from account |
+| `/farcaster-miniapp/profile` | GET | Get Farcaster profile |
+
+**Core Flow** (plugin ID: `farcaster`):
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/farcaster/create-channel` | POST | Create SIWF channel (returns QR URL) |
+| `/farcaster/channel-status` | POST | Poll channel status |
+| `/farcaster/verify-siwf` | POST | Verify signature and create session |
+| `/farcaster/link` | POST | Link Farcaster to existing account |
+| `/farcaster/unlink` | POST | Unlink Farcaster from account |
+| `/farcaster/profile` | GET | Get Farcaster profile |
 
 ### Error Codes
 
@@ -362,9 +372,17 @@ type FarcasterCoreAuthErrorCode =
 
 ## 🔒 Rate Limiting
 
+**Miniapp Endpoints:**
+
 | Endpoint | Limit |
 |----------|-------|
-| `/farcaster/sign-in` | 10/min |
+| `/farcaster-miniapp/sign-in` | 10/min |
+| `/farcaster-miniapp/link` | 5/min |
+
+**Core Endpoints:**
+
+| Endpoint | Limit |
+|----------|-------|
 | `/farcaster/create-channel` | 10/min |
 | `/farcaster/verify-siwf` | 10/min |
 | `/farcaster/channel-status` | 60/min |
@@ -372,24 +390,72 @@ type FarcasterCoreAuthErrorCode =
 
 ---
 
-## 🔄 Migration from v3.x
+## 🔄 Migration from v3.x to v4.x
 
-If you were using v3.x, your existing imports will continue to work:
+### ⚠️ Breaking Changes in v4.0.0
+
+The **Miniapp plugin** has been renamed to avoid conflicts when using both plugins together:
+
+| v3.x | v4.x |
+|------|------|
+| Plugin ID: `farcaster` | Plugin ID: `farcaster-miniapp` |
+| Endpoints: `/farcaster/*` | Endpoints: `/farcaster-miniapp/*` |
+| Client: `authClient.farcaster.*` | Client: `authClient.farcasterMiniapp.*` |
+
+### Client Method Updates (Miniapp)
 
 ```typescript
-// These still work (backward compatible)
-import { farcasterAuth } from "better-auth-farcaster-plugin";
-import { farcasterAuthClient } from "better-auth-farcaster-plugin/client";
-import { useFarcasterSignIn } from "better-auth-farcaster-plugin/react";
+// v3.x
+authClient.farcaster.signIn({ token })
+authClient.farcaster.link({ token })
+authClient.farcaster.unlink()
+authClient.farcaster.profile()
+
+// v4.x
+authClient.farcasterMiniapp.signIn({ token })
+authClient.farcasterMiniapp.link({ token })
+authClient.farcasterMiniapp.unlink()
+authClient.farcasterMiniapp.profile()
 ```
 
-For the new Core/SIWF flow, use the new import paths:
+### Using Both Plugins Together
+
+You can now use both Miniapp and Core plugins without conflicts:
 
 ```typescript
+// Server
+import { farcasterMiniappAuth } from "better-auth-farcaster-plugin/miniapp";
 import { farcasterCoreAuth } from "better-auth-farcaster-plugin/core";
+
+export const auth = betterAuth({
+    plugins: [
+        farcasterMiniappAuth({ domain: "example.com" }),
+        farcasterCoreAuth({ domain: "example.com", siweUri: "https://example.com/login" }),
+    ],
+});
+
+// Client
+import { farcasterMiniappClient } from "better-auth-farcaster-plugin/miniapp/client";
 import { farcasterCoreClient } from "better-auth-farcaster-plugin/core/client";
-import { useFarcasterSIWF } from "better-auth-farcaster-plugin/core/react";
+
+export const authClient = createAuthClient({
+    plugins: [farcasterMiniappClient(), farcasterCoreClient()],
+});
+
+// Use both
+authClient.farcasterMiniapp.signIn({ token });  // Miniapp flow
+authClient.farcaster.createChannel();            // Core SIWF flow
 ```
+
+### Import Compatibility
+
+Server imports still work (backward compatible):
+
+```typescript
+import { farcasterAuth } from "better-auth-farcaster-plugin"; // Still works
+```
+
+**However**, client code needs to be updated to use `farcasterMiniapp.*` methods.
 
 ---
 
