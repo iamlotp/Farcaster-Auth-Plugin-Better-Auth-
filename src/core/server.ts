@@ -244,7 +244,7 @@ export const farcasterCoreAuth = (options: FarcasterCorePluginOptions) => {
              * Verify a SIWF signature and create a session
              */
             verifySignature: createAuthEndpoint(
-                "/farcaster/verify-siwf",
+                "/farcaster/verify-signature",
                 {
                     method: "POST",
                     body: verifySignatureSchema,
@@ -567,7 +567,7 @@ export const farcasterCoreAuth = (options: FarcasterCorePluginOptions) => {
                 window: 60, // 10 requests per minute
             },
             {
-                pathMatcher: (path: string) => path === "/farcaster/verify-siwf",
+                pathMatcher: (path: string) => path === "/farcaster/verify-signature",
                 max: 10,
                 window: 60, // 10 requests per minute
             },

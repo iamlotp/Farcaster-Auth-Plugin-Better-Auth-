@@ -65,7 +65,7 @@ export const farcasterCoreClient = () => {
         pathMethods: {
             "/farcaster/create-channel": "POST",
             "/farcaster/channel-status": "POST",
-            "/farcaster/verify-siwf": "POST",
+            "/farcaster/verify-signature": "POST",
             "/farcaster/link": "POST",
             "/farcaster/unlink": "POST",
         },
