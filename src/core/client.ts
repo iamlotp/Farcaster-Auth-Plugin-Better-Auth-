@@ -1,5 +1,4 @@
 import type { BetterAuthClientPlugin } from "better-auth/client";
-import type { farcasterCoreAuth } from "./server";
 import type {
     FarcasterUser,
     FarcasterProfileResponse,
@@ -17,10 +16,19 @@ import type {
  * 
  * @example
  * ```ts
- * import type { FarcasterCoreActions } from "better-auth-farcaster-plugin/core/client";
+ * import { createAuthClient } from "better-auth/react";
+ * import { farcasterCoreClient, type FarcasterCoreActions } from "better-auth-farcaster-plugin/core/client";
  * 
- * // Access methods with proper types
- * const result = await (authClient as any).farcaster.createChannel();
+ * const client = createAuthClient({
+ *   baseURL: "http://localhost:3000",
+ *   plugins: [farcasterCoreClient()],
+ * });
+ * 
+ * // Export with proper types
+ * export const authClient = client as typeof client & { farcaster: FarcasterCoreActions };
+ * 
+ * // Now you have proper autocomplete!
+ * const { data: channel } = await authClient.farcaster.createChannel();
  * ```
  */
 export interface FarcasterCoreActions {
@@ -83,8 +91,9 @@ export function getFarcasterCore(authClient: any): FarcasterCoreActions {
 /**
  * Farcaster Core authentication client plugin for Better Auth
  * 
- * This plugin uses $InferServerPlugin to automatically infer server endpoints
- * for the channel-based SIWF (Sign In With Farcaster) flow.
+ * Note: Better Auth's automatic type inference ($InferServerPlugin) does not work
+ * reliably with external npm packages. Use the FarcasterCoreActions type or
+ * getFarcasterCore() helper for proper TypeScript autocomplete.
  * 
  * Methods available on the client:
  * - `authClient.farcaster.createChannel()` - Create a SIWF channel (returns URL for QR/deeplink)
@@ -97,14 +106,15 @@ export function getFarcasterCore(authClient: any): FarcasterCoreActions {
  * @example
  * ```ts
  * import { createAuthClient } from "better-auth/react";
- * import { farcasterCoreClient } from "better-auth-farcaster-plugin/core/client";
+ * import { farcasterCoreClient, type FarcasterCoreActions } from "better-auth-farcaster-plugin/core/client";
  * 
- * export const authClient = createAuthClient({
+ * const client = createAuthClient({
  *   baseURL: "http://localhost:3000",
- *   plugins: [
- *     farcasterCoreClient(),
- *   ],
+ *   plugins: [farcasterCoreClient()],
  * });
+ * 
+ * // Export with proper types
+ * export const authClient = client as typeof client & { farcaster: FarcasterCoreActions };
  * 
  * // Create a channel for QR code
  * const { data: channel } = await authClient.farcaster.createChannel();
@@ -128,15 +138,7 @@ export function getFarcasterCore(authClient: any): FarcasterCoreActions {
  */
 export const farcasterCoreClient = () => {
     return {
-        id: "farcaster" as const,
-        $InferServerPlugin: {} as ReturnType<typeof farcasterCoreAuth>,
-        pathMethods: {
-            "/farcaster/create-channel": "POST",
-            "/farcaster/channel-status": "POST",
-            "/farcaster/verify-signature": "POST",
-            "/farcaster/link": "POST",
-            "/farcaster/unlink": "POST",
-        },
+        id: "farcaster",
         getActions: ($fetch: any): FarcasterCoreActions => ({
             /**
              * Create a SIWF channel for QR code or deeplink authentication
@@ -221,6 +223,13 @@ export const farcasterCoreClient = () => {
                 });
             },
         }),
+        pathMethods: {
+            "/farcaster/create-channel": "POST",
+            "/farcaster/channel-status": "POST",
+            "/farcaster/verify-signature": "POST",
+            "/farcaster/link": "POST",
+            "/farcaster/unlink": "POST",
+        },
     } satisfies BetterAuthClientPlugin;
 };
 

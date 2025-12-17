@@ -1,5 +1,4 @@
 import type { BetterAuthClientPlugin } from "better-auth/client";
-import type { farcasterMiniappAuth } from "./server";
 import type {
     FarcasterUser,
     FarcasterSignInResponse,
@@ -14,10 +13,19 @@ import type {
  * 
  * @example
  * ```ts
- * import type { FarcasterMiniappActions } from "better-auth-farcaster-plugin/miniapp/client";
+ * import { createAuthClient } from "better-auth/react";
+ * import { farcasterMiniappClient, type FarcasterMiniappActions } from "better-auth-farcaster-plugin/miniapp/client";
  * 
- * // Access methods with proper types
- * const result = await (authClient as any).farcasterMiniapp.signIn({ token: "..." });
+ * const client = createAuthClient({
+ *   baseURL: "http://localhost:3000",
+ *   plugins: [farcasterMiniappClient()],
+ * });
+ * 
+ * // Export with proper types
+ * export const authClient = client as typeof client & { farcasterMiniapp: FarcasterMiniappActions };
+ * 
+ * // Now you have proper autocomplete!
+ * const { data } = await authClient.farcasterMiniapp.signIn({ token: "..." });
  * ```
  */
 export interface FarcasterMiniappActions {
@@ -58,8 +66,9 @@ export function getFarcasterMiniapp(authClient: any): FarcasterMiniappActions {
 /**
  * Farcaster Miniapp authentication client plugin for Better Auth
  * 
- * This plugin uses $InferServerPlugin to automatically infer server endpoints
- * for the Farcaster Quick Auth miniapp flow.
+ * Note: Better Auth's automatic type inference ($InferServerPlugin) does not work
+ * reliably with external npm packages. Use the FarcasterMiniappActions type or
+ * getFarcasterMiniapp() helper for proper TypeScript autocomplete.
  * 
  * Methods available on the client:
  * - `authClient.farcasterMiniapp.signIn({ token })` - Sign in with Quick Auth token
@@ -70,14 +79,15 @@ export function getFarcasterMiniapp(authClient: any): FarcasterMiniappActions {
  * @example
  * ```ts
  * import { createAuthClient } from "better-auth/react";
- * import { farcasterMiniappClient } from "better-auth-farcaster-plugin/miniapp/client";
+ * import { farcasterMiniappClient, type FarcasterMiniappActions } from "better-auth-farcaster-plugin/miniapp/client";
  * 
- * export const authClient = createAuthClient({
+ * const client = createAuthClient({
  *   baseURL: "http://localhost:3000",
- *   plugins: [
- *     farcasterMiniappClient(),
- *   ],
+ *   plugins: [farcasterMiniappClient()],
  * });
+ * 
+ * // Export with proper types
+ * export const authClient = client as typeof client & { farcasterMiniapp: FarcasterMiniappActions };
  * 
  * // Sign in with Farcaster Quick Auth token
  * const { data, error } = await authClient.farcasterMiniapp.signIn({ token });
@@ -88,13 +98,7 @@ export function getFarcasterMiniapp(authClient: any): FarcasterMiniappActions {
  */
 export const farcasterMiniappClient = () => {
     return {
-        id: "farcaster-miniapp" as const,
-        $InferServerPlugin: {} as ReturnType<typeof farcasterMiniappAuth>,
-        pathMethods: {
-            "/farcaster-miniapp/sign-in": "POST",
-            "/farcaster-miniapp/link": "POST",
-            "/farcaster-miniapp/unlink": "POST",
-        },
+        id: "farcaster-miniapp",
         getActions: ($fetch: any): FarcasterMiniappActions => ({
             /**
              * Sign in with a Farcaster Quick Auth token
@@ -138,6 +142,11 @@ export const farcasterMiniappClient = () => {
                 });
             },
         }),
+        pathMethods: {
+            "/farcaster-miniapp/sign-in": "POST",
+            "/farcaster-miniapp/link": "POST",
+            "/farcaster-miniapp/unlink": "POST",
+        },
     } satisfies BetterAuthClientPlugin;
 };
 

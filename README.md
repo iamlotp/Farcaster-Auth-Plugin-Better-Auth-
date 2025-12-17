@@ -76,6 +76,42 @@ export const authClient = createAuthClient({
 });
 ```
 
+### TypeScript Types
+
+Better Auth's automatic type inference (`$InferServerPlugin`) does not work reliably with external npm packages. Use type casting for proper autocomplete:
+
+```typescript
+// auth-client.ts
+import { createAuthClient } from "better-auth/react";
+import { farcasterMiniappClient, type FarcasterMiniappActions } from "better-auth-farcaster-plugin/miniapp/client";
+import { farcasterCoreClient, type FarcasterCoreActions } from "better-auth-farcaster-plugin/core/client";
+
+const client = createAuthClient({
+    baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
+    plugins: [farcasterMiniappClient(), farcasterCoreClient()],
+});
+
+// Export with proper types
+export const authClient = client as typeof client & {
+    farcasterMiniapp: FarcasterMiniappActions;
+    farcaster: FarcasterCoreActions;
+};
+
+// Now you have full autocomplete!
+authClient.farcasterMiniapp.signIn({ token: "..." });
+authClient.farcaster.createChannel();
+```
+
+**Alternative: Helper functions**
+
+```typescript
+import { getFarcasterMiniapp } from "better-auth-farcaster-plugin/miniapp/client";
+import { getFarcasterCore } from "better-auth-farcaster-plugin/core/client";
+
+const miniapp = getFarcasterMiniapp(authClient);  // Typed!
+const core = getFarcasterCore(authClient);         // Typed!
+```
+
 ### React Hooks (Miniapp)
 
 ```tsx
