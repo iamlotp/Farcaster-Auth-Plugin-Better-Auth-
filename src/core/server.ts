@@ -446,10 +446,12 @@ export const farcasterCoreAuth = (options: FarcasterCorePluginOptions): BetterAu
                                 ? await options.resolveUserData(fid)
                                 : { name: undefined, email: undefined, image: undefined };
 
-                            // Create new user with FID
+                            // Create new user with FID - ID format: "fid:[actualfid]"
+                            const userId = `fid:${fid}`;
                             const createdUser = await ctx.context.adapter.create({
                                 model: "user",
                                 data: {
+                                    id: userId,
                                     fid,
                                     email: additionalData.email || `${fid}@farcaster.local`,
                                     name: additionalData.name || displayName || username || `Farcaster User ${fid}`,
@@ -458,6 +460,26 @@ export const farcasterCoreAuth = (options: FarcasterCorePluginOptions): BetterAu
                                 },
                             }) as UserRecord;
                             user = createdUser;
+                        }
+
+                        // Create or update account in the account table
+                        const existingAccount = await ctx.context.adapter.findOne({
+                            model: "account",
+                            where: [
+                                { field: "providerId", value: "Farcaster" },
+                                { field: "accountId", value: String(fid) },
+                            ],
+                        });
+
+                        if (!existingAccount) {
+                            await ctx.context.adapter.create({
+                                model: "account",
+                                data: {
+                                    accountId: String(fid),
+                                    providerId: "Farcaster",
+                                    userId: user.id,
+                                },
+                            });
                         }
 
                         // Create session for the user

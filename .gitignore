@@ -181,6 +181,7 @@ dist
 
 # Agent
 .agent
+!.agent/workflows
 
 # Auth client
 auth-client
