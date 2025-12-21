@@ -7,6 +7,8 @@ import { z } from "zod";
 // Import types
 import type {
     FarcasterUser,
+    FarcasterProfileResponse,
+    FarcasterLinkResponse,
 } from "../types";
 import type {
     FarcasterCorePluginOptions,
@@ -20,6 +22,133 @@ export type {
     SIWFChannelResponse,
     SIWFVerifyResponse,
 };
+
+/**
+ * Type utility to add Farcaster Core (SIWF) types to your auth instance.
+ * Use this when Better Auth's automatic type inference doesn't work with external plugins.
+ * 
+ * This preserves all base Better Auth types (getSession, signInEmail, etc.) while
+ * adding the Farcaster Core API types.
+ * 
+ * @example
+ * ```ts
+ * import { betterAuth } from "better-auth";
+ * import { farcasterCoreAuth, type WithFarcasterCore } from "better-auth-farcaster-plugin/core";
+ * 
+ * const _auth = betterAuth({
+ *   plugins: [farcasterCoreAuth({ domain: "example.com", siweUri: "https://example.com/login" })],
+ * });
+ * 
+ * // Export with proper types - preserves all Better Auth base types!
+ * export const auth = _auth as WithFarcasterCore<typeof _auth>;
+ * 
+ * // Now you have autocomplete for both base methods and plugin methods!
+ * await auth.api.getSession({ headers: ... });  // ✓ Base Better Auth method
+ * await auth.api.createChannelFarcaster({ body: {} });  // ✓ Plugin method
+ * ```
+ */
+export type WithFarcasterCore<T> = T extends { api: infer API }
+    ? Omit<T, 'api'> & {
+        api: API & {
+            createChannelFarcaster: (params: { body?: { nonce?: string; notBefore?: string; expirationTime?: string; requestId?: string }; headers?: Headers }) => Promise<SIWFChannelResponse>;
+            channelStatusFarcaster: (params: { body: { channelToken: string }; headers?: Headers }) => Promise<any>;
+            verifySignatureFarcaster: (params: { body: { channelToken: string; message: string; signature: string; fid: number; username?: string; displayName?: string; pfpUrl?: string; bio?: string }; headers?: Headers }) => Promise<SIWFVerifyResponse>;
+            linkFarcaster: (params: { body: { channelToken: string; message: string; signature: string; fid: number }; headers?: Headers }) => Promise<FarcasterLinkResponse>;
+            unlinkFarcaster: (params: { headers?: Headers }) => Promise<FarcasterLinkResponse>;
+            profileFarcaster: (params: { headers?: Headers }) => Promise<FarcasterProfileResponse>;
+        }
+    }
+    : T;
+
+/**
+ * Type for Farcaster Core server API actions
+ * Use this type for proper autocomplete when Better Auth's automatic
+ * type inference doesn't work with external plugins.
+ * 
+ * @example
+ * ```ts
+ * import { betterAuth } from "better-auth";
+ * import { farcasterCoreAuth, type FarcasterCoreServerActions } from "better-auth-farcaster-plugin/core";
+ * 
+ * const auth = betterAuth({
+ *   plugins: [farcasterCoreAuth({ domain: "example.com", siweUri: "https://example.com/login" })],
+ * });
+ * 
+ * // Option 1: Cast the auth object
+ * export const typedAuth = auth as typeof auth & {
+ *   api: { farcaster: FarcasterCoreServerActions }
+ * };
+ * await typedAuth.api.farcaster.createChannel({ body: {} });
+ * 
+ * // Option 2: Use the helper function
+ * import { getFarcasterCoreApi } from "better-auth-farcaster-plugin/core";
+ * const farcasterApi = getFarcasterCoreApi(auth);
+ * await farcasterApi.createChannel({ body: {} });
+ * ```
+ */
+export interface FarcasterCoreServerActions {
+    createChannel: (params: {
+        body?: {
+            nonce?: string;
+            notBefore?: string;
+            expirationTime?: string;
+            requestId?: string;
+        };
+        headers?: Headers
+    }) => Promise<SIWFChannelResponse>;
+    channelStatus: (params: { body: { channelToken: string }; headers?: Headers }) => Promise<any>;
+    verifySignature: (params: {
+        body: {
+            channelToken: string;
+            message: string;
+            signature: string;
+            fid: number;
+            username?: string;
+            displayName?: string;
+            pfpUrl?: string;
+            bio?: string;
+        };
+        headers?: Headers
+    }) => Promise<SIWFVerifyResponse>;
+    link: (params: {
+        body: {
+            channelToken: string;
+            message: string;
+            signature: string;
+            fid: number;
+        };
+        headers?: Headers
+    }) => Promise<FarcasterLinkResponse>;
+    unlink: (params: { headers?: Headers }) => Promise<FarcasterLinkResponse>;
+    profile: (params: { headers?: Headers }) => Promise<FarcasterProfileResponse>;
+}
+
+/**
+ * Helper function to get typed Farcaster Core server actions from any auth instance.
+ * Use this to get proper autocomplete when Better Auth's type inference fails.
+ * 
+ * @param auth - Your Better Auth instance (typed as any)
+ * @returns Typed FarcasterCoreServerActions object
+ * 
+ * @example
+ * ```ts
+ * import { betterAuth } from "better-auth";
+ * import { farcasterCoreAuth, getFarcasterCoreApi } from "better-auth-farcaster-plugin/core";
+ * 
+ * const auth = betterAuth({
+ *   plugins: [farcasterCoreAuth({ domain: "example.com", siweUri: "https://example.com/login" })],
+ * });
+ * 
+ * // Get typed Farcaster API methods
+ * const farcasterApi = getFarcasterCoreApi(auth);
+ * 
+ * // Now you have proper autocomplete!
+ * const channel = await farcasterApi.createChannel({ body: {} });
+ * ```
+ */
+export function getFarcasterCoreApi(auth: any): FarcasterCoreServerActions {
+    return (auth.api as any).farcaster as FarcasterCoreServerActions;
+}
 
 // Type for user records from the adapter
 type UserRecord = { id: string;[key: string]: unknown };
@@ -87,7 +216,7 @@ function getDomainFromUrl(url: string): string {
  * });
  * ```
  */
-export const farcasterCoreAuth = (options: FarcasterCorePluginOptions) => {
+export const farcasterCoreAuth = (options: FarcasterCorePluginOptions): BetterAuthPlugin => {
     const domain = getDomainFromUrl(options.domain);
     const siweUri = options.siweUri;
     const relay = options.relay || 'https://relay.farcaster.xyz';
@@ -582,7 +711,7 @@ export const farcasterCoreAuth = (options: FarcasterCorePluginOptions) => {
                 window: 60, // 5 requests per minute
             },
         ],
-    } satisfies BetterAuthPlugin;
+    };
 };
 
 /**

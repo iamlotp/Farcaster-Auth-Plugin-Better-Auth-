@@ -3,10 +3,12 @@
 // For new code, import from 'better-auth-farcaster-plugin/miniapp' or 'better-auth-farcaster-plugin/core'
 
 // Re-export miniapp server plugin as default for backward compatibility
-export { farcasterMiniappAuth as farcasterAuth, farcasterMiniappAuth } from './miniapp';
+export { farcasterMiniappAuth as farcasterAuth, farcasterMiniappAuth, getFarcasterMiniappApi } from './miniapp';
 export type {
     FarcasterMiniappPluginOptions as FarcasterPluginOptions,
     FarcasterMiniappPluginOptions,
+    FarcasterMiniappServerActions,
+    WithFarcasterMiniapp,
 } from './miniapp';
 
 // Re-export shared types

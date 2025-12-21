@@ -1,9 +1,11 @@
 // Core server plugin exports (uses @farcaster/auth-client for channel-based SIWF)
-export { farcasterCoreAuth } from './server';
+export { farcasterCoreAuth, getFarcasterCoreApi } from './server';
 export type {
     FarcasterCorePluginOptions,
     SIWFChannelResponse,
     SIWFVerifyResponse,
+    FarcasterCoreServerActions,
+    WithFarcasterCore,
 } from './server';
 
 // Re-export client helpers and types

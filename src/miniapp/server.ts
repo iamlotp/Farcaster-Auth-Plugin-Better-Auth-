@@ -22,6 +22,101 @@ export type {
 };
 
 /**
+ * Type utility to add Farcaster Miniapp types to your auth instance.
+ * Use this when Better Auth's automatic type inference doesn't work with external plugins.
+ * 
+ * This preserves all base Better Auth types (getSession, signInEmail, etc.) while
+ * adding the Farcaster Miniapp API types.
+ * 
+ * @example
+ * ```ts
+ * import { betterAuth } from "better-auth";
+ * import { farcasterMiniappAuth, type WithFarcasterMiniapp } from "better-auth-farcaster-plugin/miniapp";
+ * 
+ * const _auth = betterAuth({
+ *   plugins: [farcasterMiniappAuth({ domain: "example.com" })],
+ * });
+ * 
+ * // Export with proper types - preserves all Better Auth base types!
+ * export const auth = _auth as WithFarcasterMiniapp<typeof _auth>;
+ * 
+ * // Now you have autocomplete for both base methods and plugin methods!
+ * await auth.api.getSession({ headers: ... });  // ✓ Base Better Auth method
+ * await auth.api.signInFarcasterMiniapp({ body: { token: "..." } });  // ✓ Plugin method
+ * ```
+ */
+export type WithFarcasterMiniapp<T> = T extends { api: infer API }
+    ? Omit<T, 'api'> & {
+        api: API & {
+            signInFarcasterMiniapp: (params: { body: { token: string }; headers?: Headers }) => Promise<FarcasterSignInResponse>;
+            linkFarcasterMiniapp: (params: { body: { token: string }; headers?: Headers }) => Promise<FarcasterLinkResponse>;
+            unlinkFarcasterMiniapp: (params: { headers?: Headers }) => Promise<FarcasterLinkResponse>;
+            profileFarcasterMiniapp: (params: { headers?: Headers }) => Promise<FarcasterProfileResponse>;
+        }
+    }
+    : T;
+
+/**
+ * Type for Farcaster Miniapp server API actions
+ * Use this type for proper autocomplete when Better Auth's automatic
+ * type inference doesn't work with external plugins.
+ * 
+ * @example
+ * ```ts
+ * import { betterAuth } from "better-auth";
+ * import { farcasterMiniappAuth, type FarcasterMiniappServerActions } from "better-auth-farcaster-plugin/miniapp";
+ * 
+ * const auth = betterAuth({
+ *   plugins: [farcasterMiniappAuth({ domain: "example.com" })],
+ * });
+ * 
+ * // Option 1: Cast the auth object
+ * export const typedAuth = auth as typeof auth & {
+ *   api: { farcasterMiniapp: FarcasterMiniappServerActions }
+ * };
+ * await typedAuth.api.farcasterMiniapp.signIn({ body: { token: "..." } });
+ * 
+ * // Option 2: Use the helper function
+ * import { getFarcasterMiniappApi } from "better-auth-farcaster-plugin/miniapp";
+ * const farcasterApi = getFarcasterMiniappApi(auth);
+ * await farcasterApi.signIn({ body: { token: "..." } });
+ * ```
+ */
+export interface FarcasterMiniappServerActions {
+    signIn: (params: { body: { token: string }; headers?: Headers }) => Promise<FarcasterSignInResponse>;
+    link: (params: { body: { token: string }; headers?: Headers }) => Promise<FarcasterLinkResponse>;
+    unlink: (params: { headers?: Headers }) => Promise<FarcasterLinkResponse>;
+    profile: (params: { headers?: Headers }) => Promise<FarcasterProfileResponse>;
+}
+
+/**
+ * Helper function to get typed Farcaster Miniapp server actions from any auth instance.
+ * Use this to get proper autocomplete when Better Auth's type inference fails.
+ * 
+ * @param auth - Your Better Auth instance (typed as any)
+ * @returns Typed FarcasterMiniappServerActions object
+ * 
+ * @example
+ * ```ts
+ * import { betterAuth } from "better-auth";
+ * import { farcasterMiniappAuth, getFarcasterMiniappApi } from "better-auth-farcaster-plugin/miniapp";
+ * 
+ * const auth = betterAuth({
+ *   plugins: [farcasterMiniappAuth({ domain: "example.com" })],
+ * });
+ * 
+ * // Get typed Farcaster API methods
+ * const farcasterApi = getFarcasterMiniappApi(auth);
+ * 
+ * // Now you have proper autocomplete!
+ * const result = await farcasterApi.signIn({ body: { token: "..." } });
+ * ```
+ */
+export function getFarcasterMiniappApi(auth: any): FarcasterMiniappServerActions {
+    return (auth.api as any).farcasterMiniapp as FarcasterMiniappServerActions;
+}
+
+/**
  * Plugin options for Farcaster Miniapp authentication
  * Uses Farcaster Quick Auth for JWT verification in miniapp context
  */
@@ -103,7 +198,7 @@ function getDomainFromUrl(url: string): string {
  * });
  * ```
  */
-export const farcasterMiniappAuth = (options: FarcasterMiniappPluginOptions) => {
+export const farcasterMiniappAuth = (options: FarcasterMiniappPluginOptions): BetterAuthPlugin => {
     const client = createClient();
     const domain = getDomainFromUrl(options.domain);
 
@@ -438,5 +533,5 @@ export const farcasterMiniappAuth = (options: FarcasterMiniappPluginOptions) => 
                 window: 60, // 5 requests per minute
             },
         ],
-    } satisfies BetterAuthPlugin;
+    };
 };

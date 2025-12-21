@@ -1,8 +1,10 @@
 // Miniapp server plugin exports (uses @farcaster/quick-auth for JWT verification)
-export { farcasterMiniappAuth, farcasterMiniappAuth as farcasterAuth } from './server';
+export { farcasterMiniappAuth, farcasterMiniappAuth as farcasterAuth, getFarcasterMiniappApi } from './server';
 export type {
     FarcasterMiniappPluginOptions,
     FarcasterMiniappPluginOptions as FarcasterPluginOptions,
+    FarcasterMiniappServerActions,
+    WithFarcasterMiniapp,
 } from './server';
 
 // Miniapp client plugin exports
